@@ -5,6 +5,9 @@ venv/
 
 .env
 
+# Local Claude Code config: hooks, rules, skills, settings
+.claude/
+
 data/bird-mini-dev/*
 !data/bird-mini-dev/dev_databases/
 data/bird-mini-dev/dev_databases/*
