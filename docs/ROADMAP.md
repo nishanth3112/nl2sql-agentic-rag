@@ -15,6 +15,7 @@ Fork of `v-arun2002/nl2sql-agentic-rag`. One phase = one branch = one PR into `m
 - Wrong-but-valid SQL, e.g. returning `constructorId` instead of the constructor's name.
 - `evidence` reaches the planner only, never the generator.
 - Setup still uses pip and venv.
+- The UI is Streamlit; it will be replaced by a Lovable-built frontend (Phases 7–8).
 
 ## Phases
 
@@ -27,4 +28,5 @@ Fork of `v-arun2002/nl2sql-agentic-rag`. One phase = one branch = one PR into `m
 | 4 | `feat/phase-4-semantic-layer` | New dbt project `semantic_layer/` (separate from `dbt_project/`) on DuckDB with TPC-DS data and MetricFlow semantic models; about 100 business questions with gold SQL | `mf validate-configs` passes; the existing loop is baselined on the business set | planned |
 | 5 | `feat/phase-5-semantic-router` | LangGraph router: questions covered by a metric compile through MetricFlow, the rest fall back to the existing loop; MCP tools to list and query metrics | Coverage and accuracy reported per path; new MCP tools carry safety declarations and are tested through a real client | planned |
 | 6 | `feat/phase-6-verifier` | Multi-candidate generation with execution-result voting, result-shape checks (ID returned where a name was asked), clarification interrupt | Held-out comparison against the latest baseline | planned |
-| 7 | `feat/phase-7-analyst-experience` | Answer panel with summary, chart, plain-English SQL and abstention; thumbs-up feedback into a verified-query store used as few-shot examples (calibration questions only) | Demo flow works end to end; few-shot effect measured on held-out | planned |
+| 7 | `feat/phase-7-analyst-api` | API the new frontend will use: answer payload (summary, SQL and explanation, rows, chart hint, path taken, verifier status, cost), streamed agent trace, uploads moved behind the API, feedback into a verified-query store used as few-shot examples (calibration questions only), CORS allowlist; OpenAPI schema committed as the frontend contract. Streamlit keeps working | OpenAPI schema committed; API tests pass; few-shot effect measured on held-out | planned |
+| 8 | `feat/phase-8-frontend` | Lovable-built frontend imported into `frontend/`, wired to the Phase 7 API through a typed client; CI build; static container in docker-compose and k8s; Streamlit retired once a parity checklist passes | Parity checklist passes in a browser; CI builds the frontend; Streamlit and `UI_DIRECT_MODE` removed; README updated | planned |
