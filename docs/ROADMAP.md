@@ -14,14 +14,13 @@ Fork of `v-arun2002/nl2sql-agentic-rag`. One phase = one branch = one PR into `m
 - The 44.20% headline and the +8.67pp evidence ablation were measured on a configuration that no longer exists. No fresh baseline yet.
 - Wrong-but-valid SQL, e.g. returning `constructorId` instead of the constructor's name.
 - `evidence` reaches the planner only, never the generator.
-- Setup still uses pip and venv.
 - The UI is Streamlit; it will be replaced by a Lovable-built frontend (Phases 7–8).
 
 ## Phases
 
 | Phase | Branch | Goal | Done when | Status |
 |---|---|---|---|---|
-| 0 | `chore/phase-0-foundation` | uv everywhere (root, Dockerfiles, Airflow image, CI, README); commit CLAUDE.md and this roadmap; ignore `.claude/` | `uv run pytest` passes; images build with the same resolved dependency set; no torch | planned |
+| 0 | `chore/phase-0-foundation` | uv everywhere (root, Dockerfiles, Airflow image, CI, README); commit CLAUDE.md and this roadmap; ignore `.claude/` | `uv run pytest` passes; images build with the same resolved dependency set; no torch | done |
 | 1 | `feat/phase-1-cost-tracing` | Per-node tracing plus token and cost accounting in the benchmark CSV and `EVAL_RESULTS` (additive, nullable columns) | An approved small slice records tokens and cost per question; old CSVs still load | planned |
 | 2 | `feat/phase-2-split-baseline` | Seeded calibration/held-out split, stratified by database and difficulty, with committed question IDs; harness split option; fresh baseline under the current config | Held-out baseline CSV committed and loaded; README headline re-dated with its config | planned |
 | 3 | `feat/phase-3-semantic-context` | Semantic definitions (formulas, value encodings, synonyms, entity display names) authored from BIRD `database_description` files and calibration questions only; indexed in Chroma; fed to planner and generator | Held-out comparison against Phase 2 with matching `db_id_set_hash` and McNemar, reported whichever way it goes | planned |

@@ -114,8 +114,8 @@ trail can hold. Logging failures never fail a tool call; they go to stderr.
 Start the engine first, then the MCP server:
 
 ```bash
-uvicorn api.main:app --port 8000
-python -m mcp_server.server
+uv run uvicorn api.main:app --port 8000
+uv run python -m mcp_server.server
 ```
 
 Client config (Claude Desktop `claude_desktop_config.json`, or
@@ -125,8 +125,8 @@ Client config (Claude Desktop `claude_desktop_config.json`, or
 {
   "mcpServers": {
     "nl2sql_mcp": {
-      "command": "python",
-      "args": ["-m", "mcp_server.server"],
+      "command": "uv",
+      "args": ["run", "python", "-m", "mcp_server.server"],
       "cwd": "/absolute/path/to/nl2sql-agentic-rag",
       "env": { "NL2SQL_API_URL": "http://localhost:8000" }
     }
@@ -134,8 +134,8 @@ Client config (Claude Desktop `claude_desktop_config.json`, or
 }
 ```
 
-Use the interpreter that has `requirements.txt` installed — on Windows with the
-bundled venv, that is `venv\Scripts\python.exe`.
+`uv run` picks up the project's environment from `cwd`, so run `uv sync` there
+once first.
 
 ## Limits worth knowing
 
