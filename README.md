@@ -162,7 +162,7 @@ of the previously-failing questions in this slice resolve.
    not ground truth, and that some of the gap it closes is itself annotation
    artifact.
 
-Reproduce with `python -m scripts.compare_ablation eval/results_500_baseline.csv
+Reproduce with `uv run python -m scripts.compare_ablation eval/results_500_baseline.csv
 eval/results_150_with_evidence.csv 150`. Both arms' per-question rows are
 committed.
 
@@ -333,8 +333,7 @@ disjoint four-database set, which produced the same count and a different hash.
 ```bash
 git clone https://github.com/v-arun2002/nl2sql-agentic-rag.git
 cd nl2sql-agentic-rag
-python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+uv sync                                          # needs uv: https://docs.astral.sh/uv/
 
 cp .env.example .env
 # add your API keys — see .env.example for which providers each role uses
@@ -345,21 +344,21 @@ the two-step process (questions from Hugging Face, `.sqlite` files from the BIRD
 site), then:
 
 ```bash
-python -m data.build_schema_index
+uv run python -m data.build_schema_index
 ```
 
 ## Running it
 
 **Interactive demo** (two terminals):
 ```bash
-uvicorn api.main:app --reload      # http://localhost:8000/docs
-streamlit run ui/app.py            # http://localhost:8501
+uv run uvicorn api.main:app --reload      # http://localhost:8000/docs
+uv run streamlit run ui/app.py            # http://localhost:8501
 ```
 
 Or skip the backend entirely — `UI_DIRECT_MODE=true` invokes the graph in-process,
 which is how the hosted demo runs on a single-process host:
 ```bash
-UI_DIRECT_MODE=true streamlit run ui/app.py
+UI_DIRECT_MODE=true uv run streamlit run ui/app.py
 ```
 
 ### Querying your own database
@@ -425,8 +424,8 @@ still apply, since every query spends real API budget.
 
 **Benchmark:**
 ```bash
-python -m eval.run_benchmark               # full 500
-BENCHMARK_LIMIT=50 python -m eval.run_benchmark   # quick slice
+uv run python -m eval.run_benchmark               # full 500
+BENCHMARK_LIMIT=50 uv run python -m eval.run_benchmark   # quick slice
 ```
 Results checkpoint to `eval/results.csv` every 10 questions, and a re-run resumes
 from whatever is already there — a full run takes hours, and interruptions
@@ -434,7 +433,7 @@ shouldn't cost the whole thing.
 
 **Regression tests:**
 ```bash
-pytest tests/test_regression.py -v
+uv run pytest tests/test_regression.py -v
 ```
 Checks *correctness* (execution match against gold SQL), not merely that the
 pipeline didn't crash.

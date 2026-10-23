@@ -1,0 +1,59 @@
+[project]
+name = "nl2sql-agentic-rag"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=0.2.0",
+    "google-genai>=1.0.0",
+    "openai==3.0.0",
+    "chromadb>=0.5.0",
+    "redis>=5.0.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+    "mangum>=0.17.0",
+    "streamlit>=1.40.0",
+    "pydantic>=2.9.0",
+    "python-dotenv>=1.0.0",
+    "pytest>=8.3.0",
+    "requests>=2.32.0",
+    # Upper bound is load-bearing: mcp 2.x renamed FastMCP to MCPServer and
+    # mcp.server.fastmcp is gone, so mcp_server/server.py will not import under it.
+    "mcp>=1.2.0,<2",
+    "httpx>=0.27.0",
+    "snowflake-connector-python>=4.7.0,<5.0.0",
+    "cryptography>=42.0.0",
+    # Ceiling for the same reason as mcp: a major bump is where the breaking
+    # changes land. 1.12.1 resolves cleanly against the connector pin above; it
+    # does pull protobuf back to 6.x and certifi to 2025.1.31, both of which still
+    # satisfy every other requirement here.
+    "dbt-snowflake>=1.12.0,<2.0.0",
+    # Not in the old requirements.txt. pip resolved dbt-core to this beta anyway
+    # (nothing capped it), and the images and the Airflow dbt_build task have run
+    # on it. uv prefers stable releases and would pick 1.12.6, so the beta is
+    # pinned to keep the resolved set unchanged. Moving to stable is a separate,
+    # deliberate change.
+    "dbt-core==1.13.0b1",
+]
+
+# What api/lambda_handler.py imports, and nothing else. Lambda's Python 3.11 base
+# is Amazon Linux 2 (glibc 2.26): dbt-core's parser and recent onnxruntime wheels
+# need a newer glibc, and the API imports no dbt, Snowflake or Streamlit code, so
+# the full set cannot install there and does not need to. Keep these constraints
+# in step with `dependencies` above.
+[dependency-groups]
+lambda = [
+    "langgraph>=0.2.0",
+    "google-genai>=1.0.0",
+    "openai==3.0.0",
+    "chromadb>=0.5.0",
+    "redis>=5.0.0",
+    "fastapi>=0.115.0",
+    "mangum>=0.17.0",
+    "pydantic>=2.9.0",
+    "python-dotenv>=1.0.0",
+]
+
+# An application, not a package: nothing here is built or installed, which also
+# keeps the Docker build free of a README (.dockerignore excludes it).
+[tool.uv]
+package = false

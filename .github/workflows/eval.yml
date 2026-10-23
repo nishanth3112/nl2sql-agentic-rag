@@ -17,18 +17,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      # Python comes from .python-version, the same 3.11 the images use.
+      - uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.11"
-          cache: pip
+          version: "0.13.4"
+          enable-cache: true
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: uv sync --frozen
 
       # Everything except the live-provider regression suite. Named by exclusion
       # so a new test file is covered by default rather than silently skipped.
       - name: Run unit tests
-        run: pytest tests/ --ignore=tests/test_regression.py -v
+        run: uv run --frozen pytest tests/ --ignore=tests/test_regression.py -v
 
   # End-to-end accuracy against live providers. Manual only: it spends real API
   # budget on every run, and a provider being down would otherwise redden the
@@ -45,13 +46,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      # Python comes from .python-version, the same 3.11 the images use.
+      - uses: astral-sh/setup-uv@v7
         with:
-          python-version: "3.11"
-          cache: pip
+          version: "0.13.4"
+          enable-cache: true
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: uv sync --frozen
 
       - name: Run regression tests
         env:
@@ -59,4 +61,4 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           BENCHMARK_DATA_PATH: ${{ vars.BENCHMARK_DATA_PATH || './data/bird-mini-dev' }}
-        run: pytest tests/test_regression.py -v -rs
+        run: uv run --frozen pytest tests/test_regression.py -v -rs

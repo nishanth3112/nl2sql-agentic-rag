@@ -1,0 +1,35 @@
+Phase 0: requirements.txt -> uv.lock, resolved dependency set comparison
+
+Method
+  before  python:3.11-slim, `pip install -r requirements.txt` (the old Dockerfile line)
+  after   python:3.11-slim, `uv sync --frozen --no-install-project` from uv.lock
+  Both resolved at the same moment (uv lock --exclude-newer 2026-10-21T23:03:16Z, the
+  time of the "before" build), so newer releases cannot explain a difference.
+  Installed distributions were listed with importlib.metadata inside each image.
+  The committed uv.lock was then re-locked without --exclude-newer, so a plain `uv run`
+  does not rewrite it. Only the [options] block changed; every package name and version
+  was diffed before and after and is identical.
+
+Counts
+  before  193 distributions
+  after   190 distributions
+
+Diff (before < > after)
+  < pip==24.0
+  < setuptools==79.0.1
+  < wheel==0.46.3
+  These three are the base image's own tooling. A uv-created venv does not include
+  them, and nothing depends on them. Every other distribution matches name and version.
+
+Note on dbt-core
+  requirements.txt never named dbt-core. pip resolved it to 1.13.0b1, a beta, because
+  nothing capped it; uv prefers stable releases and would have chosen 1.12.6. The beta is
+  pinned in pyproject.toml so the resolved set stays the same. Moving to a stable
+  dbt-core is a separate change.
+
+No torch
+  The after set contains no torch, nvidia-*, triton or sentence-transformers.
+  onnxruntime==1.31.0 is present (Chroma's ONNX embedder).
+
+Tests
+  uv run pytest tests/ --ignore=tests/test_regression.py: 187 passed.

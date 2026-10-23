@@ -4,9 +4,9 @@ Orchestrates the benchmark pipeline: run the benchmark, load results into
 Snowflake, build the dbt models.
 
 The image is built from [`Dockerfile`](Dockerfile), which extends
-`apache/airflow:3.3.1` with the project's `requirements.txt`. The build context
-is the **project root**, not `airflow/`, so the Dockerfile's `COPY` can reach
-`requirements.txt` one level up. `docker build airflow/` will fail; use
+`apache/airflow:3.3.1` with the project's dependencies from `pyproject.toml`,
+installed with uv. The build context is the **project root**, not `airflow/`,
+so the Dockerfile's `COPY` can reach `pyproject.toml` one level up. `docker build airflow/` will fail; use
 `docker compose build` from this directory.
 
 ## Required: `SNOWFLAKE_ACCOUNT` is not set
@@ -45,8 +45,8 @@ That means the local API and Streamlit UI share one SQLite file with the
 Airflow workers:
 
 ```bash
-uvicorn api.main:app --port 8000     # DON'T, while a DAG task is running
-streamlit run ui/app.py              # DON'T, while a DAG task is running
+uv run uvicorn api.main:app --port 8000     # DON'T, while a DAG task is running
+uv run streamlit run ui/app.py              # DON'T, while a DAG task is running
 ```
 
 Concurrent writers to one SQLite database across a Docker bind mount produce
