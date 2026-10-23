@@ -1,10 +1,19 @@
 # Separate from the main Dockerfile -- Lambda's container runtime requires
 # AWS's base image and a specific CMD format (module.function), not a
 # standard uvicorn server process.
-FROM public.ecr.aws/lambda/python:3.11
+#
+# Python 3.12, not 3.11: the 3.11 base is Amazon Linux 2, whose sqlite3 is older
+# than the 3.35 Chroma requires, so the handler cannot even import chromadb there.
+FROM public.ecr.aws/lambda/python:3.12
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=ghcr.io/astral-sh/uv:0.13.4 /uv /bin/uv
+
+# The base image owns its interpreter, so the project's venv layout does not
+# apply: export the locked versions of the `lambda` group (see pyproject.toml for
+# why it is not the full set) and install them into that interpreter.
+COPY pyproject.toml uv.lock ./
+RUN uv export --frozen --only-group lambda --no-hashes --no-emit-project --no-header -o /tmp/requirements.txt \
+    && uv pip install --system --no-cache -r /tmp/requirements.txt
 
 COPY . .
 

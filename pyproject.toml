@@ -35,6 +35,24 @@ dependencies = [
     "dbt-core==1.13.0b1",
 ]
 
+# What api/lambda_handler.py imports, and nothing else. Lambda's Python 3.11 base
+# is Amazon Linux 2 (glibc 2.26): dbt-core's parser and recent onnxruntime wheels
+# need a newer glibc, and the API imports no dbt, Snowflake or Streamlit code, so
+# the full set cannot install there and does not need to. Keep these constraints
+# in step with `dependencies` above.
+[dependency-groups]
+lambda = [
+    "langgraph>=0.2.0",
+    "google-genai>=1.0.0",
+    "openai==3.0.0",
+    "chromadb>=0.5.0",
+    "redis>=5.0.0",
+    "fastapi>=0.115.0",
+    "mangum>=0.17.0",
+    "pydantic>=2.9.0",
+    "python-dotenv>=1.0.0",
+]
+
 # An application, not a package: nothing here is built or installed, which also
 # keeps the Docker build free of a README (.dockerignore excludes it).
 [tool.uv]
