@@ -474,13 +474,15 @@ for a "peak month," the system returned `'201307'` where the reference expects
 `'07'`. Same logic, same underlying answer, scored wrong. A meaningful share of
 the 279 failures are shape mismatches rather than reasoning errors.
 
-**Telemetry failures are swallowed on purpose.** The MCP server's
-`QUERY_HISTORY` insert sits inside a bare `except` that reports to stderr and
-returns normally — a broken logging write must never become a broken query
-response. Verified by making the insert fail server-side: both calls returned
-their rows, both logged the failure, neither raised. The cost is that telemetry
-can fail invisibly; a real deployment would alert on it rather than print to
-stderr.
+**Telemetry failures are swallowed on purpose, and reported.** The MCP server's
+`QUERY_HISTORY` insert sits inside a bare `except` that returns normally — a
+broken logging write must never become a broken query response. A failure logs
+a WARNING on stderr (tool name and exception type only; the message is at
+DEBUG) and increments a counter that `nl2sql_get_capabilities` returns under
+`telemetry`, so a caller can see the audit trail has gaps. A test forces the
+insert to fail and asserts the call still returns, the counter moves, and
+stdout stays clean. The cost that remains: the counters live in process memory
+and reset on restart, and nothing alerts on them — a real deployment would.
 
 **Only statement-level Snowflake failures are tested.** A `ProgrammingError`
 leaves the cached connection usable, and a second call was confirmed to reuse it

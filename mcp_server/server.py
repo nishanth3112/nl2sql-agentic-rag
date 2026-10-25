@@ -65,9 +65,11 @@ See mcp_server/README.md for client configuration.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
 import threading
+from datetime import datetime, timezone
 from typing import Annotated, Any
 
 import httpx
@@ -150,6 +152,40 @@ DbId = Annotated[
 _snowflake_conn = None
 _snowflake_lock = threading.Lock()
 
+logger = logging.getLogger("nl2sql_mcp")
+
+# QUERY_HISTORY write outcomes for this process. A failed write is swallowed so
+# it cannot break a tool call, which makes these counters -- returned in the
+# capability manifest -- the one way a caller can tell the audit trail has gaps.
+# In-memory, so they reset when the server restarts.
+_telemetry_lock = threading.Lock()
+_telemetry: dict[str, Any] = {"writes_ok": 0, "writes_failed": 0, "last_failure": None}
+
+
+def _note_telemetry_ok() -> None:
+    with _telemetry_lock:
+        _telemetry["writes_ok"] += 1
+
+
+def _note_telemetry_failure(tool: str, exc: Exception) -> None:
+    with _telemetry_lock:
+        _telemetry["writes_failed"] += 1
+        _telemetry["last_failure"] = {
+            "tool": tool,
+            "error_type": type(exc).__name__,
+            "at": datetime.now(timezone.utc).isoformat(),
+        }
+    # Type only at WARNING: the message can carry connection details, and the
+    # manifest this feeds is read by a model. The full text is at DEBUG.
+    logger.warning("QUERY_HISTORY insert failed for %s (%s)", tool, type(exc).__name__)
+    logger.debug("QUERY_HISTORY insert failure detail", exc_info=exc)
+
+
+def _telemetry_snapshot() -> dict[str, Any]:
+    with _telemetry_lock:
+        last = _telemetry["last_failure"]
+        return {**_telemetry, "last_failure": dict(last) if last else None}
+
 
 def _get_logging_connection():
     """
@@ -220,8 +256,9 @@ def _log_tool_call(
     Telemetry must not be able to break the thing it observes: if Snowflake is
     unreachable, credentials are missing, or the insert fails, the caller
     still gets their result. So every failure here is swallowed after being
-    reported -- on stderr specifically, because under the stdio transport
-    stdout IS the JSON-RPC stream and a stray print() would corrupt it.
+    reported: a WARNING log (stderr, because under the stdio transport stdout
+    IS the JSON-RPC stream and a stray print() would corrupt it) and a counter
+    in the capability manifest's `telemetry` field.
 
     invoked_at is left to the column's DEFAULT CURRENT_TIMESTAMP() rather than
     bound from this process, so the recorded time comes from one clock
@@ -253,7 +290,16 @@ def _log_tool_call(
             )
         conn.commit()
     except Exception as exc:  # noqa: BLE001 -- deliberately total; see docstring
-        print(f"[nl2sql_mcp] QUERY_HISTORY logging failed ({type(exc).__name__}: {exc})", file=sys.stderr)
+        try:
+            _note_telemetry_failure(tool, exc)
+        except Exception as report_exc:  # noqa: BLE001 -- the reporter must not raise either
+            print(
+                f"[nl2sql_mcp] QUERY_HISTORY insert failed for {tool} ({type(exc).__name__}); "
+                f"reporting it also failed ({type(report_exc).__name__})",
+                file=sys.stderr,
+            )
+    else:
+        _note_telemetry_ok()
 
 
 # --- HTTP proxy ---------------------------------------------------------------
@@ -412,7 +458,8 @@ _SERVER_GUARANTEES = [
     "The safety gate runs in the API, not in this proxy, so calling the API directly bypasses nothing.",
     "Every tool call -- including refusals and discovery -- is logged to "
     "Snowflake QUERY_HISTORY with tool name, declared client, and arguments.",
-    "Logging failures never fail a tool call (reported on stderr instead).",
+    "Logging failures never fail a tool call. They are logged as a WARNING on stderr and "
+    "counted in this manifest's `telemetry` field, so gaps in the audit trail are visible.",
 ]
 
 
@@ -476,6 +523,7 @@ async def _build_manifest() -> dict:
         "server": "nl2sql_mcp",
         "transport_note": "thin HTTP proxy; all enforcement happens in the API at " + API_URL,
         "guarantees": _SERVER_GUARANTEES,
+        "telemetry": _telemetry_snapshot(),
         "tools": tools,
         "undeclared_tools": sorted(set(registered) - set(_TOOL_SAFETY)),
         "live_enforcement": live if live is not None else {"unavailable": live_error},
