@@ -21,6 +21,9 @@ resource "aws_lambda_function" "api" {
       OPENAI_API_KEY      = var.openai_api_key
       BENCHMARK_DATA_PATH  = "/var/task/data/bird-mini-dev"
       MAX_RETRIES         = tostring(var.max_retries)
+      TRACING_ENABLED     = tostring(var.tracing_enabled)
+      # Lambda's filesystem is read-only outside /tmp.
+      TRACE_EXPORT_PATH   = "/tmp/spans.jsonl"
       PLANNER_PROVIDER    = var.planner_provider
       PLANNER_MODEL       = var.planner_model
       GENERATOR_PROVIDER  = var.generator_provider

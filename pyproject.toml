@@ -33,6 +33,10 @@ dependencies = [
     # pinned to keep the resolved set unchanged. Moving to stable is a separate,
     # deliberate change.
     "dbt-core==1.13.0b1",
+    # For the optional node spans in src/tracing.py. Already installed through
+    # chromadb; declared so a chromadb change cannot silently remove them.
+    "opentelemetry-api>=1.45.1",
+    "opentelemetry-sdk>=1.45.1",
 ]
 
 # What api/lambda_handler.py imports, and nothing else. Lambda's Python 3.11 base

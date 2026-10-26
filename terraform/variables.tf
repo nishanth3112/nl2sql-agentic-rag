@@ -72,3 +72,8 @@ variable "max_retries" {
   type    = number
   default = 3
 }
+
+variable "tracing_enabled" {
+  type    = bool
+  default = false
+}
