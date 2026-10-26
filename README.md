@@ -502,10 +502,11 @@ price: Groq lists `llama-3.3-70b-versatile` and `llama-3.1-8b-instant` as
 contact-sales, so a question that calls them has tokens but an empty cost. Only
 requests that return are counted, so retries the SDK makes inside one call are
 invisible and can make a total slightly low. A question that crashes loses its
-usage and is recorded with empty cells. Nothing here has run against a live
-Snowflake account yet: the loader and its pre-write column check are tested
-against a fake connection, and the dbt models only parse (`dbt parse`) without
-being built against a warehouse. The migration in `snowflake_sql/schema.sql` has
+usage and is recorded with empty cells. The schema, the loader's pre-write
+column check and `dbt build` with its tests have been run against a live
+Snowflake trial account, using the two committed CSVs, which have no cost
+columns. Loading a CSV that does have them has not been run live yet, and the
+Airflow DAG has not run at all. The migration in `snowflake_sql/schema.sql` has
 to be applied before a CSV with these columns is loaded.
 
 **Only statement-level Snowflake failures are tested.** A `ProgrammingError`
