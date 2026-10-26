@@ -24,7 +24,11 @@ casted as (
         cast(classifier_model            as varchar(100))  as classifier_model,
 
         cast(total_questions             as number)        as total_questions,
-        cast(source_file_hash            as varchar(64))   as source_file_hash
+        cast(source_file_hash            as varchar(64))   as source_file_hash,
+
+        -- Date of the prices behind est_cost_usd. Added with cost tracing; NULL
+        -- on runs recorded before it.
+        cast(pricing_as_of               as varchar(10))   as pricing_as_of
 
     from source
 

@@ -30,7 +30,23 @@ casted as (
         cast(error_classes_hit    as varchar)      as error_classes_hit,
         cast(fatal_error          as varchar)      as fatal_error,
         cast(schema_context_chars as number)       as schema_context_chars,
-        cast(seconds              as float)        as seconds
+        cast(seconds              as float)        as seconds,
+
+        -- Cost tracing, added later (snowflake_sql/schema.sql). NULL on runs
+        -- loaded before it existed, and NULL where the figure is unknown -- the
+        -- question crashed, or a model has no listed price. NULL cost means
+        -- "unknown", not zero.
+        cast(llm_calls             as number(38, 0)) as llm_calls,
+        cast(prompt_tokens         as number(38, 0)) as prompt_tokens,
+        cast(cached_prompt_tokens  as number(38, 0)) as cached_prompt_tokens,
+        cast(completion_tokens     as number(38, 0)) as completion_tokens,
+        cast(reasoning_tokens      as number(38, 0)) as reasoning_tokens,
+        cast(est_cost_usd          as number(18, 8)) as est_cost_usd,
+        cast(retriever_seconds     as float)         as retriever_seconds,
+        cast(planner_seconds       as float)         as planner_seconds,
+        cast(generator_seconds     as float)         as generator_seconds,
+        cast(executor_seconds      as float)         as executor_seconds,
+        cast(classifier_seconds    as float)         as classifier_seconds
 
     from source
 

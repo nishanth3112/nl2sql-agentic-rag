@@ -41,6 +41,19 @@ joined as (
         results.schema_context_chars,
         results.seconds,
 
+        -- cost tracing: NULL on older runs and where unknown
+        results.llm_calls,
+        results.prompt_tokens,
+        results.cached_prompt_tokens,
+        results.completion_tokens,
+        results.reasoning_tokens,
+        results.est_cost_usd,
+        results.retriever_seconds,
+        results.planner_seconds,
+        results.generator_seconds,
+        results.executor_seconds,
+        results.classifier_seconds,
+
         -- run-level configuration
         runs.run_timestamp,
         runs.config_label,
@@ -49,7 +62,8 @@ joined as (
         runs.classifier_model,
         runs.planner_provider,
         runs.generator_provider,
-        runs.classifier_provider
+        runs.classifier_provider,
+        runs.pricing_as_of
 
     from results
 
