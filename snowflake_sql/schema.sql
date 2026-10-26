@@ -67,3 +67,27 @@ ALTER TABLE QUERY_HISTORY ADD COLUMN IF NOT EXISTS
     client_version  VARCHAR(64),
     arguments       VARIANT,
     error_message   VARCHAR;
+
+-- Cost tracing: what each question cost and where its time went, from the
+-- columns eval/run_benchmark.py now writes. NULL on rows loaded before they
+-- existed, and NULL where the figure is unknown (the question crashed, or a
+-- model has no listed price). A NULL est_cost_usd is "unknown", not zero:
+-- count the costed questions before averaging.
+-- Apply this BEFORE loading a CSV that has these columns, or before the dbt
+-- models that read them are built; the loader refuses to start otherwise.
+ALTER TABLE EVAL_RESULTS ADD COLUMN IF NOT EXISTS
+    llm_calls             NUMBER,
+    prompt_tokens         NUMBER,
+    cached_prompt_tokens  NUMBER,
+    completion_tokens     NUMBER,
+    reasoning_tokens      NUMBER,
+    est_cost_usd          NUMBER(18, 8),
+    retriever_seconds     FLOAT,
+    planner_seconds       FLOAT,
+    generator_seconds     FLOAT,
+    executor_seconds      FLOAT,
+    classifier_seconds    FLOAT;
+
+-- The date the prices behind est_cost_usd were read (src/pricing.py).
+ALTER TABLE EVAL_RUNS ADD COLUMN IF NOT EXISTS
+    pricing_as_of  VARCHAR(10);

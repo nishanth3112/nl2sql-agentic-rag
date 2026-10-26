@@ -96,7 +96,8 @@ Every tool call — including refusals and discovery calls — is written to
 Snowflake `QUERY_HISTORY` with the tool name, the client's self-declared
 `clientInfo` name and version, the arguments as `VARIANT` (capped at 16KB),
 and the refusal reason. A refused `DROP` is the most important row an audit
-trail can hold. Logging failures never fail a tool call; they go to stderr.
+trail can hold. Logging failures never fail a tool call; they are logged as a WARNING on stderr
+and counted under `telemetry` in the capabilities manifest.
 
 ## Configuration
 

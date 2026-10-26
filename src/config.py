@@ -15,6 +15,11 @@ class Settings:
     redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     max_retries: int = int(os.getenv("MAX_RETRIES", "3"))
 
+    # Optional OpenTelemetry spans for graph nodes, written as JSON lines to a
+    # local file. Off by default; see src/tracing.py.
+    tracing_enabled: bool = os.getenv("TRACING_ENABLED", "false").lower() == "true"
+    trace_export_path: str = os.getenv("TRACE_EXPORT_PATH", "./logs/spans.jsonl")
+
     # Reasoning models (OpenAI's GPT-5 family and o-series) spend tokens on
     # internal reasoning BEFORE emitting any visible output, and their token
     # cap covers reasoning + output COMBINED. Without headroom, the model can

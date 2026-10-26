@@ -17,12 +17,22 @@ dbt_project/
 ├── dbt_project.yml
 ├── macros/
 │   └── generate_schema_name.sql     # STAGING / MARTS, not RAW_STAGING
-└── models/
-    └── staging/
-        ├── sources.yml              # raw source: NL2SQL_ANALYTICS.RAW
-        ├── stg_eval_runs.sql
-        ├── stg_eval_results.sql
-        └── stg_query_history.sql
+├── models/
+│   ├── staging/
+│   │   ├── sources.yml              # raw source: NL2SQL_ANALYTICS.RAW
+│   │   ├── stg_eval_runs.sql
+│   │   ├── stg_eval_results.sql
+│   │   └── stg_query_history.sql
+│   ├── intermediate/
+│   │   └── int_eval_results_enriched.sql
+│   └── marts/
+│       ├── mart_accuracy_by_database.sql
+│       ├── mart_accuracy_by_difficulty.sql
+│       ├── mart_accuracy_over_time.sql
+│       └── mart_cost_per_correct.sql   # what each run cost, per correct answer
+└── tests/
+    ├── assert_accuracy_bounds.sql
+    └── assert_cost_bounds.sql
 ```
 
 Materialisation: `staging` and `intermediate` are views, `marts` are tables.
@@ -73,3 +83,18 @@ cd dbt_project
 dbt debug      # connection test
 dbt run        # build models
 ```
+
+## Cost columns: apply the migration first
+
+`stg_eval_results`, `stg_eval_runs` and `int_eval_results_enriched` read the
+cost-tracing columns (`llm_calls`, token counts, `est_cost_usd`, per-node
+seconds, `pricing_as_of`). Run the migrations at the bottom of
+[`snowflake_sql/schema.sql`](../snowflake_sql/schema.sql) **before** building:
+those models are ancestors of `mart_accuracy_over_time`, so against a warehouse
+that lacks the columns the weekly `dbt build` fails.
+
+A NULL `est_cost_usd` means unknown, not zero (a crashed question, a model with
+no listed price, or a run recorded before cost tracing). `mart_cost_per_correct`
+exposes `costed_questions` beside `total_questions` so a partly-costed run does
+not read as cheap. The Airflow DAG builds only `+mart_accuracy_over_time`, so
+build the cost mart by hand for now: `dbt build --select mart_cost_per_correct`.

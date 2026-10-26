@@ -23,6 +23,10 @@ sources:
             description: >
               SHA-256 of the results CSV. The loader refuses to insert a run
               whose hash already exists, so this is effectively unique.
+          - name: pricing_as_of
+            description: >
+              Date of the prices behind eval_results.est_cost_usd. NULL for runs
+              recorded before cost tracing.
 
       - name: eval_results
         description: One row per question in a run; joins to eval_runs on run_id.
@@ -31,6 +35,12 @@ sources:
             description: Snowflake AUTOINCREMENT. Monotonic but NOT contiguous.
           - name: run_id
             description: Foreign key to eval_runs.
+          - name: est_cost_usd
+            description: >
+              Estimated LLM cost of the question, from the pricing table in
+              src/pricing.py. NULL means unknown -- a crashed question, a model
+              with no listed price, or a run recorded before cost tracing --
+              and is NOT zero. A question that made no LLM call is 0.
 
       - name: query_history
         description: >

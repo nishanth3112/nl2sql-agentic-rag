@@ -13,6 +13,8 @@ data:
   CHROMA_PERSIST_DIR: "/app/chroma_db"
   REDIS_URL: "redis://redis:6379/0"
   MAX_RETRIES: "3"
+  TRACING_ENABLED: "false"
+  TRACE_EXPORT_PATH: "/app/logs/spans.jsonl"
   PLANNER_PROVIDER: "openai"
   PLANNER_MODEL: "gpt-5-mini"
   GENERATOR_PROVIDER: "openai"

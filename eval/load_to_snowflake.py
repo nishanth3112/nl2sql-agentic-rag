@@ -67,6 +67,24 @@ MODEL_FIELDS = [
     "classifier_model",
 ]
 
+# Cost-tracing columns, present only in CSVs written after run_benchmark.py
+# started recording them. Token counts are whole numbers; the rest are decimals.
+INTEGER_COLUMNS = [
+    "llm_calls",
+    "prompt_tokens",
+    "cached_prompt_tokens",
+    "completion_tokens",
+    "reasoning_tokens",
+]
+DECIMAL_COLUMNS = [
+    "est_cost_usd",
+    "retriever_seconds",
+    "planner_seconds",
+    "generator_seconds",
+    "executor_seconds",
+    "classifier_seconds",
+]
+
 
 def parse_args(argv=None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -122,6 +140,8 @@ def resolve_config(args: argparse.Namespace, metadata: dict) -> dict:
 
     config = {field: getattr(args, field) or metadata.get(field) or UNKNOWN for field in MODEL_FIELDS}
     config["run_timestamp"] = run_timestamp
+    # None for a run recorded before cost tracing; the EVAL_RUNS column stays NULL.
+    config["pricing_as_of"] = metadata.get("pricing_as_of")
 
     if args.include_evidence is not None:
         config["include_evidence_in_prompts"] = args.include_evidence == "true"
@@ -162,10 +182,23 @@ def prepare_results(csv_path: str, run_id: str) -> pd.DataFrame:
         the same fact, and only one of them is countable with COUNT().
       - The runner's positional "index" column is dropped; it has no
         counterpart in the table.
+
+    The cost-tracing columns are optional: a CSV from before they existed has
+    none of them, and one from after has them with empty cells wherever a figure
+    is unknown. Empty becomes NULL, never 0. Token counts are cast to a nullable
+    integer so a blank does not turn the whole column into floats ("5.0" into a
+    NUMBER column); unparseable text becomes NULL rather than failing the load.
     """
     df = pd.read_csv(csv_path, encoding="utf-8")
 
     df = df.drop(columns=[c for c in DROP_COLUMNS if c in df.columns])
+
+    for column in INTEGER_COLUMNS:
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce").astype("Int64")
+    for column in DECIMAL_COLUMNS:
+        if column in df.columns:
+            df[column] = pd.to_numeric(df[column], errors="coerce")
 
     if "correct" in df.columns:
         df["correct"] = df["correct"].map(
@@ -217,35 +250,74 @@ def find_existing_run(conn, file_hash: str):
         return cur.fetchone()
 
 
+def find_missing_columns(conn, needed: dict[str, list[str]]) -> dict[str, list[str]]:
+    """
+    Which of the columns we are about to write are absent from their tables.
+
+    Checked BEFORE anything is inserted. insert_run commits-by-default ahead of
+    the results load, so a CSV with a column the table lacks used to fail inside
+    write_pandas with the EVAL_RUNS row already written -- and that row's hash
+    then made every retry look like a duplicate load. Catching it here leaves
+    nothing behind to clean up.
+
+    `needed` maps table name to column names; comparison is case-insensitive
+    because the DDL's unquoted identifiers fold to upper case.
+    """
+    tables = [t.upper() for t in needed]
+    placeholders = ", ".join(["%s"] * len(tables))
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT table_name, column_name FROM INFORMATION_SCHEMA.COLUMNS "
+            f"WHERE table_schema = %s AND table_name IN ({placeholders})",
+            (settings.snowflake_schema.upper(), *tables),
+        )
+        known = {(table.upper(), column.upper()) for table, column in cur.fetchall()}
+
+    missing = {}
+    for table, columns in needed.items():
+        absent = [c for c in columns if (table.upper(), c.upper()) not in known]
+        if absent:
+            missing[table.upper()] = absent
+    return missing
+
+
 def insert_run(conn, run_id: str, config_label: str, config: dict, total_questions: int, file_hash: str) -> None:
     """
     Write the parent EVAL_RUNS row. Must happen before the results load:
     EVAL_RESULTS.run_id carries a foreign key to this table.
+
+    pricing_as_of is written only when the run has one, so a run from before
+    cost tracing still loads into an EVAL_RUNS table that lacks the column.
     """
+    columns = [
+        "run_id", "run_timestamp", "config_label", "include_evidence_in_prompts",
+        "planner_provider", "planner_model",
+        "generator_provider", "generator_model",
+        "classifier_provider", "classifier_model",
+        "total_questions", "source_file_hash",
+    ]
+    values = [
+        run_id,
+        to_naive_utc(config["run_timestamp"]),
+        config_label,
+        config["include_evidence_in_prompts"],
+        config["planner_provider"],
+        config["planner_model"],
+        config["generator_provider"],
+        config["generator_model"],
+        config["classifier_provider"],
+        config["classifier_model"],
+        total_questions,
+        file_hash,
+    ]
+    if config.get("pricing_as_of"):
+        columns.append("pricing_as_of")
+        values.append(config["pricing_as_of"])
+
+    placeholders = ", ".join(["%s"] * len(columns))
     conn.cursor().execute(
-        """
-        INSERT INTO EVAL_RUNS (
-            run_id, run_timestamp, config_label, include_evidence_in_prompts,
-            planner_provider, planner_model,
-            generator_provider, generator_model,
-            classifier_provider, classifier_model,
-            total_questions, source_file_hash
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """,
-        (
-            run_id,
-            to_naive_utc(config["run_timestamp"]),
-            config_label,
-            config["include_evidence_in_prompts"],
-            config["planner_provider"],
-            config["planner_model"],
-            config["generator_provider"],
-            config["generator_model"],
-            config["classifier_provider"],
-            config["classifier_model"],
-            total_questions,
-            file_hash,
-        ),
+        f"INSERT INTO EVAL_RUNS ({', '.join(columns)}) VALUES ({placeholders})",
+        tuple(values),
     )
 
 
@@ -270,6 +342,7 @@ def main(argv=None) -> int:
     print(f"config_label:    {args.config_label}")
     print(f"run_timestamp:   {config['run_timestamp']} -> {to_naive_utc(config['run_timestamp'])} UTC (NTZ)")
     print(f"include_evidence:{config['include_evidence_in_prompts']}")
+    print(f"pricing_as_of:   {config['pricing_as_of']}")
     for field in MODEL_FIELDS:
         print(f"{field:21}{config[field]}")
     print(f"source_file_hash {file_hash}")
@@ -292,6 +365,21 @@ def main(argv=None) -> int:
                 "Loading it again would duplicate every row and skew any accuracy computed\n"
                 "over EVAL_RESULTS. If this really is a distinct run, its CSV should differ;\n"
                 "if you meant to replace the existing run, delete it first."
+            )
+
+        missing = find_missing_columns(
+            conn,
+            {
+                "EVAL_RESULTS": list(df.columns),
+                "EVAL_RUNS": ["pricing_as_of"] if config.get("pricing_as_of") else [],
+            },
+        )
+        if missing:
+            details = "\n".join(f"  {table}: {', '.join(columns)}" for table, columns in missing.items())
+            raise SystemExit(
+                f"error: refusing to load '{args.csv}' -- the Snowflake tables lack columns it needs:\n"
+                f"{details}\n"
+                "Apply the migrations in snowflake_sql/schema.sql first. Nothing was written."
             )
 
         insert_run(conn, run_id, args.config_label, config, len(df), file_hash)

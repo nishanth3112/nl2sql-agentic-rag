@@ -18,6 +18,7 @@ data/bird-mini-dev/dev_databases/*
 !data/bird-mini-dev/dev_databases/california_schools/
 !data/bird-mini-dev/dev_databases/formula_1/
 logs/*.log
+logs/*.jsonl
 eval/results.csv
 
 .pytest_cache/

@@ -431,6 +431,18 @@ Results checkpoint to `eval/results.csv` every 10 questions, and a re-run resume
 from whatever is already there — a full run takes hours, and interruptions
 shouldn't cost the whole thing.
 
+Each row also records what the question cost: `llm_calls`, tokens by type
+(`prompt_tokens`, `cached_prompt_tokens`, `completion_tokens`,
+`reasoning_tokens`), `est_cost_usd`, and seconds spent in each graph node. A cell
+is left **empty, never 0**, when the figure is unknown. The run's metadata
+records the date of the prices used (`pricing_as_of`), and the summary prints
+the estimated cost over the questions that have one. CSVs written before these
+columns existed keep the same first 14 columns and still load and resume.
+
+Optional per-node OpenTelemetry spans, one JSON line each, go to a local file
+when `TRACING_ENABLED=true` (`TRACE_EXPORT_PATH`, default `./logs/spans.jsonl`).
+It is off by default, and nothing is sent anywhere.
+
 **Regression tests:**
 ```bash
 uv run pytest tests/test_regression.py -v
@@ -474,13 +486,28 @@ for a "peak month," the system returned `'201307'` where the reference expects
 `'07'`. Same logic, same underlying answer, scored wrong. A meaningful share of
 the 279 failures are shape mismatches rather than reasoning errors.
 
-**Telemetry failures are swallowed on purpose.** The MCP server's
-`QUERY_HISTORY` insert sits inside a bare `except` that reports to stderr and
-returns normally — a broken logging write must never become a broken query
-response. Verified by making the insert fail server-side: both calls returned
-their rows, both logged the failure, neither raised. The cost is that telemetry
-can fail invisibly; a real deployment would alert on it rather than print to
-stderr.
+**Telemetry failures are swallowed on purpose, and reported.** The MCP server's
+`QUERY_HISTORY` insert sits inside a bare `except` that returns normally — a
+broken logging write must never become a broken query response. A failure logs
+a WARNING on stderr (tool name and exception type only; the message is at
+DEBUG) and increments a counter that `nl2sql_get_capabilities` returns under
+`telemetry`, so a caller can see the audit trail has gaps. A test forces the
+insert to fail and asserts the call still returns, the counter moves, and
+stdout stays clean. The cost that remains: the counters live in process memory
+and reset on restart, and nothing alerts on them — a real deployment would.
+
+**Cost figures are estimates.** Prices come from the providers' own pages, read
+on the date recorded in `src/pricing.py`, and only for models with a published
+price: Groq lists `llama-3.3-70b-versatile` and `llama-3.1-8b-instant` as
+contact-sales, so a question that calls them has tokens but an empty cost. Only
+requests that return are counted, so retries the SDK makes inside one call are
+invisible and can make a total slightly low. A question that crashes loses its
+usage and is recorded with empty cells. The schema, the loader's pre-write
+column check and `dbt build` with its tests have been run against a live
+Snowflake trial account, using the two committed CSVs, which have no cost
+columns. Loading a CSV that does have them has not been run live yet, and the
+Airflow DAG has not run at all. The migration in `snowflake_sql/schema.sql` has
+to be applied before a CSV with these columns is loaded.
 
 **Only statement-level Snowflake failures are tested.** A `ProgrammingError`
 leaves the cached connection usable, and a second call was confirmed to reuse it
@@ -734,6 +761,8 @@ src/
   graph.py                 LangGraph state machine + correction routing
   config.py                per-role provider/model configuration
   llm_providers.py         multi-provider dispatch, backoff, timeouts
+  usage.py pricing.py      per-call token metering and the price table behind est_cost_usd
+  tracing.py               optional per-node OpenTelemetry spans (JSONL, off by default)
   agents/                  schema_retriever, query_planner, sql_generator,
                            error_classifier, shared state
   retrieval/               Chroma vector store + optional Redis cache

@@ -41,6 +41,10 @@ class AgentState(TypedDict):
     retrieval_failed: bool
 
     trace: List[dict]
+    # One entry per node RUN (the correction loop re-enters nodes), appended by
+    # the wrapper in src/graph.py: node, retry_count, seconds, llm_calls, token
+    # counts and cost_usd (None when a call's model has no listed price).
+    node_runs: List[dict]
     success: bool
     final_answer: Optional[str]
 
@@ -65,6 +69,7 @@ def initial_state(db_id: str, question: str, evidence: Optional[str] = None, max
         "max_retries": max_retries,
         "retrieval_failed": False,
         "trace": [],
+        "node_runs": [],
         "success": False,
         "final_answer": None,
     }
