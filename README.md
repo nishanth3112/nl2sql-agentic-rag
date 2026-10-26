@@ -431,6 +431,18 @@ Results checkpoint to `eval/results.csv` every 10 questions, and a re-run resume
 from whatever is already there — a full run takes hours, and interruptions
 shouldn't cost the whole thing.
 
+Each row also records what the question cost: `llm_calls`, tokens by type
+(`prompt_tokens`, `cached_prompt_tokens`, `completion_tokens`,
+`reasoning_tokens`), `est_cost_usd`, and seconds spent in each graph node. A cell
+is left **empty, never 0**, when the figure is unknown. The run's metadata
+records the date of the prices used (`pricing_as_of`), and the summary prints
+the estimated cost over the questions that have one. CSVs written before these
+columns existed keep the same first 14 columns and still load and resume.
+
+Optional per-node OpenTelemetry spans, one JSON line each, go to a local file
+when `TRACING_ENABLED=true` (`TRACE_EXPORT_PATH`, default `./logs/spans.jsonl`).
+It is off by default, and nothing is sent anywhere.
+
 **Regression tests:**
 ```bash
 uv run pytest tests/test_regression.py -v
@@ -483,6 +495,18 @@ DEBUG) and increments a counter that `nl2sql_get_capabilities` returns under
 insert to fail and asserts the call still returns, the counter moves, and
 stdout stays clean. The cost that remains: the counters live in process memory
 and reset on restart, and nothing alerts on them — a real deployment would.
+
+**Cost figures are estimates.** Prices come from the providers' own pages, read
+on the date recorded in `src/pricing.py`, and only for models with a published
+price: Groq lists `llama-3.3-70b-versatile` and `llama-3.1-8b-instant` as
+contact-sales, so a question that calls them has tokens but an empty cost. Only
+requests that return are counted, so retries the SDK makes inside one call are
+invisible and can make a total slightly low. A question that crashes loses its
+usage and is recorded with empty cells. Nothing here has run against a live
+Snowflake account yet: the loader and its pre-write column check are tested
+against a fake connection, and the dbt models only parse (`dbt parse`) without
+being built against a warehouse. The migration in `snowflake_sql/schema.sql` has
+to be applied before a CSV with these columns is loaded.
 
 **Only statement-level Snowflake failures are tested.** A `ProgrammingError`
 leaves the cached connection usable, and a second call was confirmed to reuse it
@@ -736,6 +760,8 @@ src/
   graph.py                 LangGraph state machine + correction routing
   config.py                per-role provider/model configuration
   llm_providers.py         multi-provider dispatch, backoff, timeouts
+  usage.py pricing.py      per-call token metering and the price table behind est_cost_usd
+  tracing.py               optional per-node OpenTelemetry spans (JSONL, off by default)
   agents/                  schema_retriever, query_planner, sql_generator,
                            error_classifier, shared state
   retrieval/               Chroma vector store + optional Redis cache
