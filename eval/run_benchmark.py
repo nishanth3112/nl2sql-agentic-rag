@@ -14,6 +14,13 @@ whatever is already in eval/results.csv. To start fresh, delete that file
 first. IMPORTANT: don't change models/providers mid-run -- resumed rows and
 new rows would then describe two different systems, making the combined
 number meaningless.
+
+Each row also records what the question cost: LLM calls, tokens by type, an
+estimated cost, and seconds spent in each graph node (summed over the runs of a
+node in the correction loop). A cell is left EMPTY, never 0, when the figure is
+unknown -- the question crashed, or a model has no listed price -- so "free" and
+"unknown" cannot be confused. Files written before these columns existed have
+the first 14 columns unchanged and simply lack the rest.
 """
 
 import csv
@@ -28,6 +35,32 @@ from src.agents.state import initial_state
 from src.config import settings
 from src.graph import build_graph
 from src.llm_providers import is_quota_exhausted
+from src.pricing import PRICING_AS_OF
+
+# The first 14 are the columns every committed results CSV has, in their
+# original order; the rest were added with cost tracing. A fixed list, not the
+# first row's keys, so resuming a file written without the new columns keeps them.
+FIELDNAMES = [
+    "index", "question_id", "db_id", "question", "evidence", "gold_sql", "predicted_sql",
+    "correct", "difficulty", "retries", "error_classes_hit", "fatal_error",
+    "schema_context_chars", "seconds",
+    "llm_calls", "prompt_tokens", "cached_prompt_tokens", "completion_tokens", "reasoning_tokens",
+    "est_cost_usd",
+    "retriever_seconds", "planner_seconds", "generator_seconds", "executor_seconds", "classifier_seconds",
+]
+
+# Graph node name (as src/graph.py registers it) -> its latency column.
+NODE_SECONDS_COLUMNS = {
+    "schema_retriever": "retriever_seconds",
+    "query_planner": "planner_seconds",
+    "sql_generator": "generator_seconds",
+    "executor": "executor_seconds",
+    "classify_error": "classifier_seconds",
+}
+
+TOKEN_COLUMNS = ("llm_calls", "prompt_tokens", "cached_prompt_tokens", "completion_tokens", "reasoning_tokens")
+
+COST_DECIMALS = 6
 
 # Distinct from 1 (an ordinary crash) so a launcher can tell "out of credit,
 # resumable" apart from "something is broken".
@@ -70,6 +103,28 @@ def is_correct_row(row: dict) -> bool:
     return str(row.get("correct")) == "True"
 
 
+def usage_columns(node_runs: list | None) -> dict:
+    """
+    The cost columns for one question, from the `node_runs` the graph recorded.
+
+    None means the question has no final state to read them from (it crashed
+    before finishing), so every cell is left empty. A question that made no LLM
+    calls (a failed retrieval) costs exactly 0.0; one with any call to an
+    unpriced model has tokens but an empty est_cost_usd.
+    """
+    if node_runs is None:
+        return {name: "" for name in (*TOKEN_COLUMNS, "est_cost_usd", *NODE_SECONDS_COLUMNS.values())}
+
+    columns: dict[str, int | float | str] = {
+        name: sum(run.get(name, 0) for run in node_runs) for name in TOKEN_COLUMNS
+    }
+    costs = [run.get("cost_usd") for run in node_runs]
+    columns["est_cost_usd"] = "" if any(c is None for c in costs) else round(sum(costs), COST_DECIMALS)
+    for node, column in NODE_SECONDS_COLUMNS.items():
+        columns[column] = round(sum(run.get("seconds", 0) for run in node_runs if run.get("node") == node), 3)
+    return columns
+
+
 def write_results(results: list) -> None:
     if not results:
         return
@@ -77,7 +132,8 @@ def write_results(results: list) -> None:
     # that Windows' default cp1252 codec cannot encode, which would otherwise
     # crash the write AFTER a full expensive run.
     with open(RESULTS_PATH, "w", newline="", encoding="utf-8", errors="replace") as f:
-        writer = csv.DictWriter(f, fieldnames=results[0].keys())
+        # restval: rows resumed from a file without the cost columns lack those keys.
+        writer = csv.DictWriter(f, fieldnames=FIELDNAMES, restval="")
         writer.writeheader()
         writer.writerows(results)
 
@@ -111,6 +167,8 @@ def write_run_metadata(total_questions: int) -> None:
         "classifier_model": settings.classifier_model,
         "include_evidence_in_prompts": settings.include_evidence_in_prompts,
         "total_questions": total_questions,
+        # The prices est_cost_usd was computed with; see src/pricing.py.
+        "pricing_as_of": PRICING_AS_OF,
     }
     with open(METADATA_PATH, "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
@@ -133,6 +191,16 @@ def print_summary(results: list, total_elapsed: float, questions_run_now: int) -
         print(f"\n{label}:")
         for name, (c, t) in sorted(groups.items()):
             print(f"  {name:>26}: {c / t:.2%} ({c}/{t})")
+
+    # Only rows with a known cost: blank cells (crashes, unpriced models, rows
+    # resumed from a file without the columns) would otherwise read as free.
+    costed = [r for r in results if r.get("est_cost_usd") not in (None, "")]
+    if costed:
+        total_cost = sum(float(r["est_cost_usd"]) for r in costed)
+        print(
+            f"\nEstimated cost: ${total_cost:.4f} over {len(costed)} of {len(results)} questions "
+            f"with a known cost (${total_cost / len(costed):.4f}/question)"
+        )
 
     if questions_run_now:
         avg = total_elapsed / questions_run_now
@@ -237,6 +305,7 @@ def run_benchmark(limit: int | None = None) -> None:
             "fatal_error": fatal_error or "",
             "schema_context_chars": len(schema_context),
             "seconds": round(question_elapsed, 1),
+            **usage_columns(final_state.get("node_runs")),
         })
 
         # Checkpoint every 10 questions so an interruption costs at most the

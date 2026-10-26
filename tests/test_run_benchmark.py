@@ -105,3 +105,174 @@ def test_an_ordinary_crash_is_still_a_counted_failure(harness):
     assert len(saved) == N
     assert graph.invoked == list(range(N))
     assert saved[2]["correct"] == "False" and "something else broke" in saved[2]["fatal_error"]
+
+
+# --- cost columns ---------------------------------------------------------------
+#
+# Each row records what the question cost. Unknown is an EMPTY cell, never 0, and
+# every file written before these columns existed must still read and resume.
+
+OLD_COLUMNS = [
+    "index", "question_id", "db_id", "question", "evidence", "gold_sql", "predicted_sql",
+    "correct", "difficulty", "retries", "error_classes_hit", "fatal_error",
+    "schema_context_chars", "seconds",
+]
+
+
+def _run(node, seconds, calls=0, prompt=0, completion=0, reasoning=0, cached=0, cost=0.0):
+    return {
+        "node": node, "retry_count": 0, "seconds": seconds, "llm_calls": calls,
+        "prompt_tokens": prompt, "cached_prompt_tokens": cached,
+        "completion_tokens": completion, "reasoning_tokens": reasoning, "cost_usd": cost,
+    }
+
+
+class MeteredGraph:
+    """Answers every question correctly and reports the node_runs it is given."""
+
+    def __init__(self, node_runs):
+        self.node_runs = node_runs
+
+    def invoke(self, state):
+        return {
+            "sql_query": "SELECT 1", "execution_result": [(1,)], "trace": [], "retry_count": 1,
+            "success": True, "node_runs": self.node_runs,
+        }
+
+
+CORRECTION_LOOP = [
+    _run("schema_retriever", 0.25),
+    _run("query_planner", 2.0, calls=1, prompt=1000, completion=200, reasoning=100, cost=0.00065),
+    _run("sql_generator", 1.5, calls=1, prompt=2000, completion=50, cached=500, cost=0.0006),
+    _run("executor", 0.125),
+    _run("classify_error", 0.0),
+    _run("query_planner", 3.0, calls=1, prompt=1100, completion=210, reasoning=100, cost=0.0007),
+    _run("sql_generator", 1.0, calls=1, prompt=2100, completion=40, cost=0.0005),
+    _run("executor", 0.125),
+]
+
+
+def test_a_row_records_tokens_cost_and_per_node_latency(harness):
+    run, rows = harness
+
+    run(MeteredGraph(CORRECTION_LOOP))
+
+    row = rows()[0]
+    assert row["llm_calls"] == "4"
+    assert row["prompt_tokens"] == str(1000 + 2000 + 1100 + 2100)
+    assert row["cached_prompt_tokens"] == "500"
+    assert row["completion_tokens"] == str(200 + 50 + 210 + 40)
+    assert row["reasoning_tokens"] == "200"
+    assert float(row["est_cost_usd"]) == pytest.approx(0.00065 + 0.0006 + 0.0007 + 0.0005)
+    # A node the loop re-entered has its runs summed.
+    assert float(row["planner_seconds"]) == pytest.approx(5.0)
+    assert float(row["generator_seconds"]) == pytest.approx(2.5)
+    assert float(row["executor_seconds"]) == pytest.approx(0.25)
+    assert float(row["retriever_seconds"]) == pytest.approx(0.25)
+    assert float(row["classifier_seconds"]) == 0.0
+
+
+def test_a_question_with_no_llm_calls_costs_exactly_zero(harness):
+    run, rows = harness
+
+    run(MeteredGraph([_run("schema_retriever", 0.1)]))
+
+    row = rows()[0]
+    assert row["llm_calls"] == "0"
+    assert row["est_cost_usd"] == "0.0"
+
+
+def test_an_unpriced_call_leaves_the_cost_empty_but_keeps_the_tokens(harness):
+    run, rows = harness
+
+    run(MeteredGraph([_run("query_planner", 1.0, calls=1, prompt=900, completion=90, cost=None)]))
+
+    row = rows()[0]
+    assert row["prompt_tokens"] == "900"
+    assert row["est_cost_usd"] == ""
+
+
+def test_a_crashed_question_leaves_every_cost_cell_empty_not_zero(harness):
+    run, rows = harness
+
+    run(FakeGraph(fail_at={2}, fail_with=RuntimeError("something else broke")))
+
+    crashed = rows()[2]
+    assert crashed["correct"] == "False"
+    for column in rb.FIELDNAMES[len(OLD_COLUMNS):]:
+        assert crashed[column] == "", column
+
+
+def test_a_graph_state_without_node_runs_gives_empty_cells(harness):
+    # What every older fake and any pre-metering graph returns.
+    run, rows = harness
+
+    run(FakeGraph())
+
+    assert all(rows()[0][column] == "" for column in rb.FIELDNAMES[len(OLD_COLUMNS):])
+
+
+def test_the_original_columns_keep_their_names_and_order():
+    assert rb.FIELDNAMES[: len(OLD_COLUMNS)] == OLD_COLUMNS
+    for committed in ("eval/results_500_baseline.csv", "eval/results_150_with_evidence.csv"):
+        with open(committed, encoding="utf-8", newline="") as f:
+            assert next(csv.reader(f)) == OLD_COLUMNS, committed
+
+
+def test_resuming_a_file_without_the_cost_columns_keeps_them(harness, tmp_path):
+    # A run started on the old format, interrupted, then resumed on the new code.
+    run, rows = harness
+    old_rows = [
+        {"index": i, "question_id": 100 + i, "db_id": "db", "question": f"question #{i}", "evidence": "",
+         "gold_sql": "SELECT 1", "predicted_sql": "SELECT 1", "correct": "True", "difficulty": "simple",
+         "retries": 0, "error_classes_hit": "", "fatal_error": "", "schema_context_chars": 10, "seconds": 1.5}
+        for i in range(2)
+    ]
+    with open(rb.RESULTS_PATH, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=OLD_COLUMNS)
+        writer.writeheader()
+        writer.writerows(old_rows)
+
+    run(MeteredGraph(CORRECTION_LOOP))
+
+    saved = rows()
+    assert [r["question_id"] for r in saved] == [str(100 + i) for i in range(N)]
+    with open(rb.RESULTS_PATH, encoding="utf-8", newline="") as f:
+        assert next(csv.reader(f)) == rb.FIELDNAMES
+    assert all(saved[i]["llm_calls"] == "" for i in range(2))  # old rows: unknown, not zero
+    assert all(saved[i]["llm_calls"] == "4" for i in range(2, N))
+    assert saved[0]["correct"] == "True" and saved[0]["seconds"] == "1.5"  # old values untouched
+
+
+def test_run_metadata_records_the_prices_the_cost_used(harness):
+    import json
+
+    from src.pricing import PRICING_AS_OF
+
+    run, _ = harness
+    run(MeteredGraph(CORRECTION_LOOP))
+
+    with open(rb.METADATA_PATH, encoding="utf-8") as f:
+        assert json.load(f)["pricing_as_of"] == PRICING_AS_OF
+
+
+def test_the_summary_averages_only_over_questions_with_a_known_cost(capsys):
+    results = [
+        {"correct": "True", "difficulty": "simple", "db_id": "a", "est_cost_usd": 0.5},
+        {"correct": "False", "difficulty": "simple", "db_id": "a", "est_cost_usd": ""},   # crashed
+        {"correct": "True", "difficulty": "simple", "db_id": "a", "est_cost_usd": "1.5"},  # read back from CSV
+        {"correct": "True", "difficulty": "simple", "db_id": "a"},                          # older file
+    ]
+
+    rb.print_summary(results, total_elapsed=10.0, questions_run_now=0)
+
+    out = capsys.readouterr().out
+    assert "Estimated cost: $2.0000 over 2 of 4 questions with a known cost ($1.0000/question)" in out
+
+
+def test_the_summary_prints_no_cost_line_when_nothing_has_one(capsys):
+    results = [{"correct": "True", "difficulty": "simple", "db_id": "a", "est_cost_usd": ""}]
+
+    rb.print_summary(results, total_elapsed=1.0, questions_run_now=0)
+
+    assert "Estimated cost" not in capsys.readouterr().out
