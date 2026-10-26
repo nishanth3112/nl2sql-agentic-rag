@@ -24,6 +24,7 @@ from google import genai
 from google.genai import types as genai_types
 from openai import OpenAI
 
+from src import usage
 from src.config import settings
 
 _gemini_client = genai.Client(api_key=settings.gemini_api_key) if settings.gemini_api_key else None
@@ -119,6 +120,56 @@ def _with_backoff(fn, max_attempts: int = 5, initial_delay: float = 2.0):
     raise last_error
 
 
+# --- usage metering ---------------------------------------------------------------
+#
+# One record per request that comes back, written right after the response
+# arrives -- before any check that can raise on it. A reasoning model that burns
+# its whole budget thinking returns empty content, and that request is billed all
+# the same. Requests that fail outright (a rejected parameter, a 429) never
+# produce a response, so they are not counted. Retries the SDK makes inside one
+# create() call are invisible from here, so the totals can under-count them.
+#
+# getattr throughout: the usage block is Optional in the SDK, OpenAI-compatible
+# providers omit pieces of it, and the test fakes carry none.
+
+
+def _record_openai_usage(provider: str, model: str, response) -> None:
+    block = getattr(response, "usage", None)
+    choices = getattr(response, "choices", None) or []
+    usage.record(
+        provider,
+        model,
+        prompt_tokens=getattr(block, "prompt_tokens", None),
+        # Already includes reasoning tokens.
+        completion_tokens=getattr(block, "completion_tokens", None),
+        reasoning_tokens=getattr(getattr(block, "completion_tokens_details", None), "reasoning_tokens", None),
+        cached_prompt_tokens=getattr(getattr(block, "prompt_tokens_details", None), "cached_tokens", None),
+        finish_reason=getattr(choices[0], "finish_reason", None) if choices else None,
+    )
+
+
+def _record_gemini_usage(model: str, response) -> None:
+    block = getattr(response, "usage_metadata", None)
+    answer_tokens = getattr(block, "candidates_token_count", None)
+    thought_tokens = getattr(block, "thoughts_token_count", None)
+    # Gemini bills thinking as output but reports it apart from the answer, so
+    # completion is their sum, matching the OpenAI convention.
+    completion_tokens = None
+    if answer_tokens is not None or thought_tokens is not None:
+        completion_tokens = (answer_tokens or 0) + (thought_tokens or 0)
+    candidates = getattr(response, "candidates", None) or []
+    finish_reason = getattr(candidates[0], "finish_reason", None) if candidates else None
+    usage.record(
+        "gemini",
+        model,
+        prompt_tokens=getattr(block, "prompt_token_count", None),
+        completion_tokens=completion_tokens,
+        reasoning_tokens=thought_tokens,
+        cached_prompt_tokens=getattr(block, "cached_content_token_count", None),
+        finish_reason=None if finish_reason is None else str(getattr(finish_reason, "name", finish_reason)),
+    )
+
+
 def _generate_gemini(model: str, system_prompt: str, user_prompt: str, max_output_tokens: int, json_mode: bool) -> str:
     def _call(use_json_mode: bool) -> str:
         config_kwargs = {"system_instruction": system_prompt, "max_output_tokens": max_output_tokens}
@@ -127,6 +178,8 @@ def _generate_gemini(model: str, system_prompt: str, user_prompt: str, max_outpu
         response = _gemini_client.models.generate_content(
             model=model, contents=user_prompt, config=genai_types.GenerateContentConfig(**config_kwargs)
         )
+        # Before .text, which can raise on a blocked or empty response that was still billed.
+        _record_gemini_usage(model, response)
         return response.text
 
     if not json_mode:
@@ -142,7 +195,13 @@ class _NeedsReasoningHeadroom(Exception):
 
 
 def _generate_openai_compatible(
-    client: OpenAI, model: str, system_prompt: str, user_prompt: str, max_output_tokens: int, json_mode: bool
+    client: OpenAI,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    max_output_tokens: int,
+    json_mode: bool,
+    provider: str = "unknown",
 ) -> str:
     def _call(use_json_mode: bool, tokens_param: str, reasoning_headroom: bool = False) -> str:
         # Models on the max_completion_tokens param are reasoning models --
@@ -162,7 +221,10 @@ def _generate_openai_compatible(
         if use_json_mode:
             kwargs["response_format"] = {"type": "json_object"}
 
-        choice = client.chat.completions.create(**kwargs).choices[0]
+        response = client.chat.completions.create(**kwargs)
+        # Before the empty-content check below: that request was billed even when it raises.
+        _record_openai_usage(provider, model, response)
+        choice = response.choices[0]
         content = choice.message.content
 
         if not content or not content.strip():
@@ -225,11 +287,15 @@ def generate_text(
     if provider == "groq":
         if not _groq_client:
             raise RuntimeError("GROQ_API_KEY not set")
-        return _generate_openai_compatible(_groq_client, model, system_prompt, user_prompt, max_output_tokens, json_mode)
+        return _generate_openai_compatible(
+            _groq_client, model, system_prompt, user_prompt, max_output_tokens, json_mode, provider="groq"
+        )
 
     if provider == "openai":
         if not _openai_client:
             raise RuntimeError("OPENAI_API_KEY not set")
-        return _generate_openai_compatible(_openai_client, model, system_prompt, user_prompt, max_output_tokens, json_mode)
+        return _generate_openai_compatible(
+            _openai_client, model, system_prompt, user_prompt, max_output_tokens, json_mode, provider="openai"
+        )
 
     raise ValueError(f"Unknown provider: {provider!r} (expected 'gemini', 'groq', or 'openai')")
