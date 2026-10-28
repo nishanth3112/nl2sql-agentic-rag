@@ -1,7 +1,7 @@
 """
 Weekly NL2SQL regression pipeline: benchmark -> load -> drift check.
 
-WEEKLY, NOT DAILY. Every run makes real LLM API calls for all 150 questions
+WEEKLY, NOT DAILY. Every run makes real LLM API calls for all 150 calibration questions
 (planner + generator + a classifier call per retry), so the schedule is a cost
 decision, not a freshness one. catchup=False for the same reason: on first
 unpause Airflow would otherwise backfill one run per missed interval since
@@ -28,9 +28,10 @@ from airflow.sdk import dag, task
 # be exercised outside the container.
 PROJECT_ROOT = Path(os.getenv("NL2SQL_PROJECT_ROOT", "/opt/airflow/project"))
 
-# The regression slice. 150 matches the size of the existing with_evidence arm,
-# so results stay comparable against that history.
-BENCHMARK_LIMIT = int(os.getenv("NL2SQL_BENCHMARK_LIMIT", "150"))
+# The regression set: the committed calibration split (eval/splits/), 150
+# questions stratified over all 11 databases. Not "the first 150 of dev.json",
+# which covered only 4 databases and could hide a regression in the other 7.
+BENCHMARK_SPLIT = os.getenv("NL2SQL_BENCHMARK_SPLIT", "calibration")
 
 CONFIG_LABEL = "scheduled_regression"
 
@@ -146,7 +147,7 @@ def _resolve_baseline_run_id() -> str:
 
 @dag(
     dag_id="nl2sql_eval",
-    description="Weekly 150-question regression: benchmark, load to Snowflake, drift check.",
+    description="Weekly calibration-split regression: benchmark, load to Snowflake, drift check.",
     schedule="@weekly",
     start_date=pendulum.datetime(2026, 9, 1, tz="UTC"),
     catchup=False,
@@ -159,18 +160,17 @@ def nl2sql_eval():
     @task
     def run_benchmark(ts_nodash: str | None = None) -> dict:
         """
-        Run the 150-question slice into a timestamped CSV.
+        Run the calibration split into a timestamped CSV.
 
-        BENCHMARK_LIMIT is the existing question-count control, read in
-        run_benchmark.py's __main__ block -- not something invented here.
+        BENCHMARK_SPLIT is read in run_benchmark.py's __main__ block and picks
+        the committed question-ID file.
 
         The timestamped output path matters for two reasons. The obvious one is
-        that each run keeps its own artifact. The load-bearing one is that
-        run_benchmark.py RESUMES from whatever its results file already
-        contains: pointed at a previous run's file it would skip all 150
-        questions, do nothing, and emit byte-identical output that the loader
-        would then reject as a duplicate hash. A fresh path per run makes that
-        impossible.
+        that each run keeps its own artifact. The other is that a results file
+        is a run's identity: run_benchmark.py refuses an existing one unless
+        --resume is given (it is not), so a reused path fails loudly instead of
+        skipping every question and emitting byte-identical output that the
+        loader would reject as a duplicate hash.
 
         Invoked as `python -m eval.run_benchmark`, not by file path, because
         the module does `from eval.metrics import ...` -- running it by path
@@ -192,7 +192,7 @@ def nl2sql_eval():
         _run(
             [sys.executable, "-m", "eval.run_benchmark"],
             {
-                "BENCHMARK_LIMIT": str(BENCHMARK_LIMIT),
+                "BENCHMARK_SPLIT": BENCHMARK_SPLIT,
                 "BENCHMARK_RESULTS_PATH": str(results_csv),
                 "BENCHMARK_METADATA_PATH": str(metadata),
             },
@@ -272,19 +272,25 @@ def nl2sql_eval():
 
         Two gates, in order, and the order is the point.
 
-        1. COVERAGE. mart_accuracy_over_time.db_id_set_hash fingerprints the
+        1. COVERAGE. The runs must be on the same split, and
+           mart_accuracy_over_time.db_id_set_hash fingerprints the
            exact set of databases a run covered. If the two runs cover
            different sets their accuracies are not comparable, so this fails
            with that explanation rather than reporting a delta that means
            nothing. distinct_db_count alone is not enough: two disjoint
-           4-database runs both report 4.
+           4-database runs both report 4. A baseline recorded before splits
+           existed has no split, so it is refused too: point the baseline at a
+           calibration-split run.
 
         2. PAIRED SIGNIFICANCE, only if coverage matches. Reuses
            scripts.compare_ablation.mcnemar_exact_two_sided -- the same exact
            binomial McNemar behind the project's headline +8.67pp / p=0.0072
            result -- rather than a second implementation that could drift from
            it. Questions pair on question_id, not row position, so a reordered
-           or partial run cannot compare two different questions.
+           or partial run cannot compare two different questions. BIRD gives
+           two questions the same question_id (137, 138), so rows are also
+           numbered within their id; a plain join on question_id would pair
+           each of those rows with both rows of the other run.
 
         The failure condition is directional: significant AND more broken than
         fixed. A significant improvement is not a failure. The two-sided
@@ -315,7 +321,7 @@ def nl2sql_eval():
                 # --- gate 1: coverage ------------------------------------
                 cur.execute(
                     """
-                    SELECT run_id, config_label, accuracy, distinct_db_count, db_id_set_hash
+                    SELECT run_id, config_label, accuracy, distinct_db_count, db_id_set_hash, split
                     FROM MARTS.MART_ACCURACY_OVER_TIME
                     WHERE run_id IN (%s, %s)
                     """,
@@ -332,6 +338,15 @@ def nl2sql_eval():
                     )
 
                 cur_row, base_row = rows[current_run_id], rows[baseline_run_id]
+                if cur_row[5] is None or cur_row[5] != base_row[5]:
+                    raise RuntimeError(
+                        "NOT COMPARABLE: the two runs are not on the same split, so they "
+                        "answered different questions.\n"
+                        f"  current  {current_run_id} ({cur_row[1]}): split {cur_row[5]}\n"
+                        f"  baseline {baseline_run_id} ({base_row[1]}): split {base_row[5]}\n"
+                        "A split of None means the run was recorded before splits existed. "
+                        "Point the baseline at a run on the same split."
+                    )
                 if cur_row[4] != base_row[4]:
                     raise RuntimeError(
                         "NOT COMPARABLE: the two runs cover different database sets, so "
@@ -347,12 +362,21 @@ def nl2sql_eval():
                 # --- gate 2: paired significance -------------------------
                 cur.execute(
                     """
+                    WITH numbered AS (
+                        SELECT run_id, question_id, correct,
+                               ROW_NUMBER() OVER (
+                                   PARTITION BY run_id, question_id ORDER BY question
+                               ) AS occurrence
+                        FROM EVAL_RESULTS
+                        WHERE run_id IN (%s, %s)
+                    )
                     SELECT b.correct AS baseline_correct, c.correct AS current_correct
-                    FROM EVAL_RESULTS b
-                    JOIN EVAL_RESULTS c ON b.question_id = c.question_id
+                    FROM numbered b
+                    JOIN numbered c
+                      ON b.question_id = c.question_id AND b.occurrence = c.occurrence
                     WHERE b.run_id = %s AND c.run_id = %s
                     """,
-                    (baseline_run_id, current_run_id),
+                    (baseline_run_id, current_run_id, baseline_run_id, current_run_id),
                 )
                 pairs = cur.fetchall()
         finally:
