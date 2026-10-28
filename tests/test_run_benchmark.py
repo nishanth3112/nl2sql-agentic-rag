@@ -276,3 +276,73 @@ def test_the_summary_prints_no_cost_line_when_nothing_has_one(capsys):
     rb.print_summary(results, total_elapsed=1.0, questions_run_now=0)
 
     assert "Estimated cost" not in capsys.readouterr().out
+
+
+# --- splits ---------------------------------------------------------------------
+#
+# A run covers one committed split, chosen by question_id -- never "the first N
+# questions of dev.json", which covered 4 of 11 databases.
+
+
+@pytest.fixture
+def splits(tmp_path, monkeypatch):
+    """Calibration = question_ids 101 and 104; held-out = the other four of the harness's six."""
+    import json
+
+    for name, ids in (("calibration", [101, 104]), ("heldout", [100, 102, 103, 105])):
+        (tmp_path / f"{name}_ids.json").write_text(json.dumps({"split": name, "question_ids": ids}), encoding="utf-8")
+    monkeypatch.setattr(rb, "SPLITS_DIR", str(tmp_path))
+
+
+def test_a_run_covers_only_its_split(harness, splits, monkeypatch):
+    run, rows = harness
+    graph = FakeGraph()
+    monkeypatch.setattr(rb, "build_graph", lambda: graph)
+
+    rb.run_benchmark(split="calibration")
+
+    assert graph.invoked == [1, 4]
+    assert [r["question_id"] for r in rows()] == ["101", "104"]
+
+
+def test_the_default_split_is_every_question(harness):
+    run, rows = harness
+    run(FakeGraph())
+    assert len(rows()) == N
+
+
+def test_limit_caps_questions_inside_the_split(harness, splits, monkeypatch):
+    run, rows = harness
+    monkeypatch.setattr(rb, "build_graph", lambda: FakeGraph())
+
+    rb.run_benchmark(limit=2, split="heldout")
+
+    assert [r["question_id"] for r in rows()] == ["100", "102"]  # first two held-out, not first two overall
+
+
+def test_an_unknown_split_stops_before_any_question_runs(harness, splits, monkeypatch):
+    run, rows = harness
+    graph = FakeGraph()
+    monkeypatch.setattr(rb, "build_graph", lambda: graph)
+
+    with pytest.raises(SystemExit) as exc:
+        rb.run_benchmark(split="holdout")
+
+    assert "holdout" in str(exc.value)
+    assert graph.invoked == [] and rows() == []
+
+
+def test_a_duplicated_question_id_keeps_both_rows_in_its_split(harness, splits, monkeypatch):
+    run, rows = harness
+    original = rb.load_dev_set
+
+    def with_duplicate(path):
+        examples = original(path)
+        return examples + [dict(examples[1])]  # question_id 101 twice, like BIRD's 137 and 138
+
+    monkeypatch.setattr(rb, "load_dev_set", with_duplicate)
+    monkeypatch.setattr(rb, "build_graph", lambda: FakeGraph())
+
+    rb.run_benchmark(split="calibration")
+
+    assert [r["question_id"] for r in rows()] == ["101", "104", "101"]

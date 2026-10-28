@@ -76,12 +76,40 @@ EXIT_QUOTA_EXHAUSTED = 3
 RESULTS_PATH = os.getenv("BENCHMARK_RESULTS_PATH", "eval/results.csv")
 METADATA_PATH = os.getenv("BENCHMARK_METADATA_PATH", "eval/run_metadata.json")
 
+# Committed by scripts/make_split.py. Questions are chosen from these files,
+# never as "the first N of dev.json".
+SPLITS_DIR = "eval/splits"
+SPLIT_NAMES = ("calibration", "heldout")
+ALL_SPLIT = "all"
+
 
 def load_dev_set(path: str) -> list:
     # Explicit utf-8: the dataset contains non-ASCII characters, and Windows
     # would otherwise default to cp1252 and fail on them.
     with open(f"{path}/dev.json", encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_split_ids(split: str) -> set | None:
+    """The question_ids of a committed split, or None for "all" (every question)."""
+    if split == ALL_SPLIT:
+        return None
+    if split not in SPLIT_NAMES:
+        raise SystemExit(f"Unknown BENCHMARK_SPLIT {split!r}: use one of {', '.join((*SPLIT_NAMES, ALL_SPLIT))}.")
+    with open(os.path.join(SPLITS_DIR, f"{split}_ids.json"), encoding="utf-8") as f:
+        return set(json.load(f)["question_ids"])
+
+
+def select_examples(examples: list, split: str, limit: int | None = None) -> list:
+    """
+    The questions of one split, in dev.json order. `limit` keeps the first N of
+    them -- a quick plumbing check, not a measurement: the first N of a split
+    still cluster in a few databases, so never report a number from one.
+    """
+    ids = load_split_ids(split)
+    if ids is not None:
+        examples = [ex for ex in examples if ex["question_id"] in ids]
+    return examples[:limit] if limit else examples
 
 
 def get_gold_result(db_id: str, gold_sql: str) -> list:
@@ -207,14 +235,13 @@ def print_summary(results: list, total_elapsed: float, questions_run_now: int) -
         print(f"\nThis session: {questions_run_now} questions in {total_elapsed / 60:.1f} min ({avg:.1f}s/question)")
 
 
-def run_benchmark(limit: int | None = None) -> None:
+def run_benchmark(limit: int | None = None, split: str = ALL_SPLIT) -> None:
     graph = build_graph()
-    examples = load_dev_set(settings.benchmark_data_path)
+    examples = select_examples(load_dev_set(settings.benchmark_data_path), split, limit)
     if limit:
-        examples = examples[:limit]
-        print(f"Running a LIMITED slice: {limit} of the full set.\n")
+        print(f"Running a LIMITED slice: the first {len(examples)} questions of split '{split}'.\n")
     else:
-        print(f"Running the FULL set: {len(examples)} examples.\n")
+        print(f"Running split '{split}': {len(examples)} examples.\n")
 
     # Both the model settings and the question count are known now, before any
     # work happens -- so the config record survives even if the run dies.
@@ -327,4 +354,4 @@ def run_benchmark(limit: int | None = None) -> None:
 
 if __name__ == "__main__":
     limit_env = os.getenv("BENCHMARK_LIMIT")
-    run_benchmark(limit=int(limit_env) if limit_env else None)
+    run_benchmark(limit=int(limit_env) if limit_env else None, split=os.getenv("BENCHMARK_SPLIT", ALL_SPLIT))
