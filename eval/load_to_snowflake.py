@@ -143,6 +143,9 @@ def resolve_config(args: argparse.Namespace, metadata: dict) -> dict:
     config["run_timestamp"] = run_timestamp
     # None for a run recorded before cost tracing; the EVAL_RUNS column stays NULL.
     config["pricing_as_of"] = metadata.get("pricing_as_of")
+    # Which questions the run covered (calibration, heldout, all). None for a run
+    # recorded before splits existed; the EVAL_RUNS column stays NULL.
+    config["split"] = metadata.get("split")
 
     if args.include_evidence is not None:
         config["include_evidence_in_prompts"] = args.include_evidence == "true"
@@ -287,8 +290,9 @@ def insert_run(conn, run_id: str, config_label: str, config: dict, total_questio
     Write the parent EVAL_RUNS row. Must happen before the results load:
     EVAL_RESULTS.run_id carries a foreign key to this table.
 
-    pricing_as_of is written only when the run has one, so a run from before
-    cost tracing still loads into an EVAL_RUNS table that lacks the column.
+    pricing_as_of and split are written only when the run has one, so a run from
+    before cost tracing or splits still loads into an EVAL_RUNS table that lacks
+    the column.
     """
     columns = [
         "run_id", "run_timestamp", "config_label", "include_evidence_in_prompts",
@@ -314,6 +318,9 @@ def insert_run(conn, run_id: str, config_label: str, config: dict, total_questio
     if config.get("pricing_as_of"):
         columns.append("pricing_as_of")
         values.append(config["pricing_as_of"])
+    if config.get("split"):
+        columns.append("split")
+        values.append(config["split"])
 
     placeholders = ", ".join(["%s"] * len(columns))
     conn.cursor().execute(
@@ -344,6 +351,7 @@ def main(argv=None) -> int:
     print(f"run_timestamp:   {config['run_timestamp']} -> {to_naive_utc(config['run_timestamp'])} UTC (NTZ)")
     print(f"include_evidence:{config['include_evidence_in_prompts']}")
     print(f"pricing_as_of:   {config['pricing_as_of']}")
+    print(f"split:           {config['split']}")
     for field in MODEL_FIELDS:
         print(f"{field:21}{config[field]}")
     print(f"source_file_hash {file_hash}")
@@ -372,7 +380,7 @@ def main(argv=None) -> int:
             conn,
             {
                 "EVAL_RESULTS": list(df.columns),
-                "EVAL_RUNS": ["pricing_as_of"] if config.get("pricing_as_of") else [],
+                "EVAL_RUNS": [c for c in ("pricing_as_of", "split") if config.get(c)],
             },
         )
         if missing:

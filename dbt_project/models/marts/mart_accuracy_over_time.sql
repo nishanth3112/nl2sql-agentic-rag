@@ -50,6 +50,7 @@ aggregated as (
         run_id,
         run_timestamp,
         config_label,
+        split,
 
         count(*)                                  as total_questions,
         count_if(correct)                         as correct_count,
@@ -61,7 +62,7 @@ aggregated as (
 
     from enriched
 
-    group by run_id, run_timestamp, config_label
+    group by run_id, run_timestamp, config_label, split
 
 )
 

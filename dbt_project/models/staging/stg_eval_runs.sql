@@ -28,7 +28,10 @@ casted as (
 
         -- Date of the prices behind est_cost_usd. Added with cost tracing; NULL
         -- on runs recorded before it.
-        cast(pricing_as_of               as varchar(10))   as pricing_as_of
+        cast(pricing_as_of               as varchar(10))   as pricing_as_of,
+
+        -- calibration, heldout or all. NULL on runs recorded before splits existed.
+        cast(split                       as varchar(20))   as split
 
     from source
 

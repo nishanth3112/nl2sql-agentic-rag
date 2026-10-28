@@ -63,7 +63,8 @@ joined as (
         runs.planner_provider,
         runs.generator_provider,
         runs.classifier_provider,
-        runs.pricing_as_of
+        runs.pricing_as_of,
+        runs.split
 
     from results
 
