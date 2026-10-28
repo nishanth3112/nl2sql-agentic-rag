@@ -44,9 +44,9 @@ def harness(tmp_path, monkeypatch):
     ])
     monkeypatch.setattr(rb, "get_gold_result", lambda db_id, sql: [(1,)])
 
-    def run(graph):
+    def run(graph, resume=False):
         monkeypatch.setattr(rb, "build_graph", lambda: graph)
-        rb.run_benchmark()
+        rb.run_benchmark(resume=resume)
 
     def rows():
         if not results.exists():
@@ -77,7 +77,7 @@ def test_resume_after_topup_reruns_the_stopped_question(harness):
         run(FakeGraph(fail_at={3}, fail_with=QuotaExhaustedError("no credit remaining")))
 
     resumed = FakeGraph()  # credit restored
-    run(resumed)
+    run(resumed, resume=True)
 
     assert resumed.invoked == [3, 4, 5]  # picks up exactly where it stopped
     saved = rows()
@@ -233,7 +233,7 @@ def test_resuming_a_file_without_the_cost_columns_keeps_them(harness, tmp_path):
         writer.writeheader()
         writer.writerows(old_rows)
 
-    run(MeteredGraph(CORRECTION_LOOP))
+    run(MeteredGraph(CORRECTION_LOOP), resume=True)
 
     saved = rows()
     assert [r["question_id"] for r in saved] == [str(100 + i) for i in range(N)]
@@ -346,3 +346,85 @@ def test_a_duplicated_question_id_keeps_both_rows_in_its_split(harness, splits, 
     rb.run_benchmark(split="calibration")
 
     assert [r["question_id"] for r in rows()] == ["101", "104", "101"]
+
+
+# --- results files are never reused silently ------------------------------------
+
+
+def test_an_existing_results_file_is_refused_without_resume(harness):
+    run, rows = harness
+    run(FakeGraph())
+    before = rows()
+
+    graph = FakeGraph()
+    with pytest.raises(SystemExit) as exc:
+        run(graph)
+
+    assert "--resume" in str(exc.value)
+    assert graph.invoked == [] and rows() == before  # nothing ran, nothing rewritten
+
+
+def test_a_refused_run_leaves_the_existing_metadata_alone(harness):
+    import os
+
+    run, _ = harness
+    run(FakeGraph())
+    stamp = os.path.getmtime(rb.METADATA_PATH)
+
+    with pytest.raises(SystemExit):
+        run(FakeGraph())
+
+    assert os.path.getmtime(rb.METADATA_PATH) == stamp
+
+
+def test_default_paths_are_timestamped_per_run():
+    assert rb.RUN_STAMP in rb.DEFAULT_RESULTS_PATH and rb.DEFAULT_RESULTS_PATH.endswith(".csv")
+    assert rb.RUN_STAMP in rb.DEFAULT_METADATA_PATH and rb.DEFAULT_METADATA_PATH.endswith(".json")
+
+
+def test_resume_matches_by_question_id_not_position(harness):
+    run, rows = harness
+    with pytest.raises(SystemExit):
+        run(FakeGraph(fail_at={3}, fail_with=QuotaExhaustedError("no credit remaining")))
+    saved = rows()
+    # Reorder the file: positional resume would now skip the wrong questions.
+    with open(rb.RESULTS_PATH, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=rb.FIELDNAMES, restval="")
+        writer.writeheader()
+        writer.writerows(reversed(saved))
+
+    resumed = FakeGraph()
+    run(resumed, resume=True)
+
+    assert resumed.invoked == [3, 4, 5]
+    assert sorted(r["question_id"] for r in rows()) == [str(100 + i) for i in range(N)]
+
+
+def test_resume_refuses_a_file_from_a_different_set_of_questions(harness, splits, monkeypatch):
+    run, rows = harness
+    monkeypatch.setattr(rb, "build_graph", lambda: FakeGraph())
+    rb.run_benchmark(split="heldout")
+    before = rows()
+
+    graph = FakeGraph()
+    monkeypatch.setattr(rb, "build_graph", lambda: graph)
+    with pytest.raises(SystemExit) as exc:
+        rb.run_benchmark(split="calibration", resume=True)  # question_ids 100, 102, 103, 105 are not calibration
+
+    assert "outside split 'calibration'" in str(exc.value)
+    assert graph.invoked == [] and rows() == before
+
+
+def test_resume_with_a_duplicated_question_id_does_each_row_once(harness, monkeypatch):
+    run, rows = harness
+    original = rb.load_dev_set
+    monkeypatch.setattr(rb, "load_dev_set", lambda path: original(path)[:2] + [dict(original(path)[1])])  # 100, 101, 101
+
+    graph = FakeGraph(fail_at={1}, fail_with=QuotaExhaustedError("no credit remaining"))
+    with pytest.raises(SystemExit):
+        run(graph)
+    assert [r["question_id"] for r in rows()] == ["100"]
+
+    run(FakeGraph(), resume=True)
+
+    assert [r["question_id"] for r in rows()] == ["100", "101", "101"]
