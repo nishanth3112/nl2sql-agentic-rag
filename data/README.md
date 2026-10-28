@@ -89,5 +89,5 @@ meaningfully easier. This project runs **without** feeding it into agent
 prompts by default (`INCLUDE_EVIDENCE_IN_PROMPTS=false` in `.env`) -- a
 harder, more honest test of whether the schema retriever agent can supply
 enough context on its own. `evidence` is still captured per-example in
-`eval/results.csv` for analysis even when unused, so you can check afterward
+the results CSV for analysis even when unused, so you can check afterward
 how much it would have helped on the questions the pipeline got wrong.

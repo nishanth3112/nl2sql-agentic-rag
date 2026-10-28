@@ -26,6 +26,23 @@ def load(path, n=None):
     return rows[:n] if n else rows
 
 
+def split_warning(baseline, new):
+    """
+    A message if the two runs are not known to be on the same split, else None.
+
+    Runs written before splits existed have no split column; two of those are
+    compared silently (that is the committed baseline and ablation pair). A
+    mixed pair, or two different splits, answered different questions.
+    """
+    splits = [{r["split"] for r in rows if r.get("split")} for rows in (baseline, new)]
+    if not splits[0] and not splits[1]:
+        return None
+    if splits[0] != splits[1]:
+        shown = [sorted(s) or ["unknown (written before splits)"] for s in splits]
+        return f"baseline split {shown[0]} vs new split {shown[1]}: these runs did not answer the same questions."
+    return None
+
+
 def is_correct(row):
     return str(row.get("correct")) == "True"
 
@@ -72,6 +89,10 @@ def main():
     n = n or len(new)
     baseline = load(baseline_path, n)
     new = new[:n]
+
+    warning = split_warning(baseline, new)
+    if warning:
+        print(f"WARNING: {warning}")
 
     if len(baseline) != len(new):
         print(f"WARNING: comparing {len(baseline)} baseline rows against {len(new)} new rows")
