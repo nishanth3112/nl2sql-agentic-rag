@@ -28,6 +28,7 @@ the first 14 columns unchanged and simply lack the rest.
 import argparse
 import csv
 import datetime
+import hashlib
 import json
 import os
 import sqlite3
@@ -51,6 +52,7 @@ FIELDNAMES = [
     "llm_calls", "prompt_tokens", "cached_prompt_tokens", "completion_tokens", "reasoning_tokens",
     "est_cost_usd",
     "retriever_seconds", "planner_seconds", "generator_seconds", "executor_seconds", "classifier_seconds",
+    "split",
 ]
 
 # Graph node name (as src/graph.py registers it) -> its latency column.
@@ -118,6 +120,14 @@ def select_examples(examples: list, split: str, limit: int | None = None) -> lis
     return examples[:limit] if limit else examples
 
 
+def split_file_sha256(split: str) -> str | None:
+    """Hash of the committed split file a run drew from; None for "all", which has no file."""
+    if split == ALL_SPLIT:
+        return None
+    with open(os.path.join(SPLITS_DIR, f"{split}_ids.json"), "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
 def get_gold_result(db_id: str, gold_sql: str) -> list:
     db_path = f"{settings.benchmark_data_path}/dev_databases/{db_id}/{db_id}.sqlite"
     conn = sqlite3.connect(db_path)
@@ -172,7 +182,7 @@ def write_results(results: list) -> None:
         writer.writerows(results)
 
 
-def write_run_metadata(total_questions: int) -> None:
+def write_run_metadata(total_questions: int, split: str) -> None:
     """
     Record which configuration produced this run, alongside results.csv.
 
@@ -201,6 +211,9 @@ def write_run_metadata(total_questions: int) -> None:
         "classifier_model": settings.classifier_model,
         "include_evidence_in_prompts": settings.include_evidence_in_prompts,
         "total_questions": total_questions,
+        # Which questions these are. Two runs are only comparable on the same split.
+        "split": split,
+        "split_file_sha256": split_file_sha256(split),
         # The prices est_cost_usd was computed with; see src/pricing.py.
         "pricing_as_of": PRICING_AS_OF,
     }
@@ -261,7 +274,7 @@ def run_benchmark(limit: int | None = None, split: str = ALL_SPLIT, resume: bool
 
     # Both the model settings and the question count are known now, before any
     # work happens -- so the config record survives even if the run dies.
-    write_run_metadata(len(examples))
+    write_run_metadata(len(examples), split)
 
     # Resume support (only when asked for): skip the questions the results file
     # already holds and append the rest, so a long run survives interruption
@@ -355,6 +368,7 @@ def run_benchmark(limit: int | None = None, split: str = ALL_SPLIT, resume: bool
             "fatal_error": fatal_error or "",
             "schema_context_chars": len(schema_context),
             "seconds": round(question_elapsed, 1),
+            "split": split,
             **usage_columns(final_state.get("node_runs")),
         })
 

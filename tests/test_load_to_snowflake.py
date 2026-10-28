@@ -315,3 +315,14 @@ def test_a_metadata_file_without_a_pricing_date_gives_none():
     config = loader.resolve_config(args, {"run_timestamp": "2026-10-25T12:00:00+00:00"})
 
     assert config["pricing_as_of"] is None
+
+
+def test_the_split_column_is_a_run_property_not_a_result_column(tmp_path):
+    rows = [{"index": 0, "question_id": 100, "db_id": "superhero", "question": "q", "evidence": "",
+             "gold_sql": "SELECT 1", "predicted_sql": "SELECT 1", "correct": True, "difficulty": "simple",
+             "retries": 0, "error_classes_hit": "", "fatal_error": "", "schema_context_chars": 1, "seconds": 1.0,
+             "split": "heldout"}]
+
+    df = loader.prepare_results(str(_new_csv(tmp_path, rows)), "run-1")
+
+    assert "SPLIT" not in df.columns

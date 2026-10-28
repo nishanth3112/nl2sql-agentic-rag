@@ -55,8 +55,9 @@ UNKNOWN = "unknown (pre-tracking)"
 
 # CSV columns that exist in results.csv but not in EVAL_RESULTS. "index" is
 # the runner's loop counter -- positional, meaningless once rows are in a
-# table with its own identity column.
-DROP_COLUMNS = ["index"]
+# table with its own identity column. "split" describes the whole run, so it
+# belongs to EVAL_RUNS, not to each result row.
+DROP_COLUMNS = ["index", "split"]
 
 MODEL_FIELDS = [
     "planner_provider",

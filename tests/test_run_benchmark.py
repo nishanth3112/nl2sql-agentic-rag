@@ -119,6 +119,10 @@ OLD_COLUMNS = [
 ]
 
 
+# Everything after the original columns and before split.
+COST_CELLS = rb.FIELDNAMES[len(OLD_COLUMNS):-1]
+
+
 def _run(node, seconds, calls=0, prompt=0, completion=0, reasoning=0, cached=0, cost=0.0):
     return {
         "node": node, "retry_count": 0, "seconds": seconds, "llm_calls": calls,
@@ -199,7 +203,7 @@ def test_a_crashed_question_leaves_every_cost_cell_empty_not_zero(harness):
 
     crashed = rows()[2]
     assert crashed["correct"] == "False"
-    for column in rb.FIELDNAMES[len(OLD_COLUMNS):]:
+    for column in COST_CELLS:
         assert crashed[column] == "", column
 
 
@@ -209,7 +213,7 @@ def test_a_graph_state_without_node_runs_gives_empty_cells(harness):
 
     run(FakeGraph())
 
-    assert all(rows()[0][column] == "" for column in rb.FIELDNAMES[len(OLD_COLUMNS):])
+    assert all(rows()[0][column] == "" for column in COST_CELLS)
 
 
 def test_the_original_columns_keep_their_names_and_order():
@@ -428,3 +432,46 @@ def test_resume_with_a_duplicated_question_id_does_each_row_once(harness, monkey
     run(FakeGraph(), resume=True)
 
     assert [r["question_id"] for r in rows()] == ["100", "101", "101"]
+
+
+# --- the split is recorded with every run ---------------------------------------
+
+
+def test_every_row_records_the_split_it_came_from(harness, splits, monkeypatch):
+    monkeypatch.setattr(rb, "build_graph", lambda: FakeGraph())
+    run, rows = harness
+
+    rb.run_benchmark(split="heldout")
+
+    assert {r["split"] for r in rows()} == {"heldout"}
+
+
+def test_split_is_the_last_column_and_the_others_keep_their_order():
+    assert rb.FIELDNAMES[-1] == "split"
+    assert rb.FIELDNAMES[: len(OLD_COLUMNS)] == OLD_COLUMNS
+
+
+def test_run_metadata_records_the_split_and_the_hash_of_its_file(harness, splits, monkeypatch):
+    import hashlib
+    import json
+
+    monkeypatch.setattr(rb, "build_graph", lambda: FakeGraph())
+    rb.run_benchmark(split="calibration")
+
+    with open(rb.METADATA_PATH, encoding="utf-8") as f:
+        metadata = json.load(f)
+    with open(f"{rb.SPLITS_DIR}/calibration_ids.json", "rb") as f:
+        assert metadata["split_file_sha256"] == hashlib.sha256(f.read()).hexdigest()
+    assert metadata["split"] == "calibration" and metadata["total_questions"] == 2
+
+
+def test_an_all_questions_run_records_split_all_with_no_file_hash(harness):
+    import json
+
+    run, rows = harness
+    run(FakeGraph())
+
+    with open(rb.METADATA_PATH, encoding="utf-8") as f:
+        metadata = json.load(f)
+    assert metadata["split"] == "all" and metadata["split_file_sha256"] is None
+    assert {r["split"] for r in rows()} == {"all"}
