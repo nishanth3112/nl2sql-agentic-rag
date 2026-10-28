@@ -9,6 +9,7 @@ question as wrong after ~143s of retries.
 """
 
 import csv
+import os
 
 import pytest
 
@@ -409,6 +410,7 @@ def test_resume_refuses_a_file_from_a_different_set_of_questions(harness, splits
     monkeypatch.setattr(rb, "build_graph", lambda: FakeGraph())
     rb.run_benchmark(split="heldout")
     before = rows()
+    os.remove(rb.METADATA_PATH)  # without a sidecar, the rows themselves have to give it away
 
     graph = FakeGraph()
     monkeypatch.setattr(rb, "build_graph", lambda: graph)
@@ -432,6 +434,63 @@ def test_resume_with_a_duplicated_question_id_does_each_row_once(harness, monkey
     run(FakeGraph(), resume=True)
 
     assert [r["question_id"] for r in rows()] == ["100", "101", "101"]
+
+
+def test_resume_of_a_missing_file_is_an_error_not_a_fresh_run(harness):
+    run, rows = harness
+    graph = FakeGraph()
+
+    with pytest.raises(SystemExit) as exc:
+        run(graph, resume=True)
+
+    assert "does not exist" in str(exc.value)
+    assert graph.invoked == []
+
+
+def test_resume_refuses_when_the_models_changed_and_keeps_the_original_metadata(harness, monkeypatch):
+    run, rows = harness
+    with pytest.raises(SystemExit):
+        run(FakeGraph(fail_at={3}, fail_with=QuotaExhaustedError("no credit remaining")))
+    with open(rb.METADATA_PATH, encoding="utf-8") as f:
+        original = f.read()
+
+    monkeypatch.setattr(rb.settings, "generator_model", "some-other-model")
+    graph = FakeGraph()
+    with pytest.raises(SystemExit) as exc:
+        run(graph, resume=True)
+
+    assert "generator_model" in str(exc.value)
+    assert graph.invoked == []
+    with open(rb.METADATA_PATH, encoding="utf-8") as f:
+        assert f.read() == original
+
+
+def test_resume_keeps_the_original_metadata_when_the_config_matches(harness):
+    run, rows = harness
+    with pytest.raises(SystemExit):
+        run(FakeGraph(fail_at={3}, fail_with=QuotaExhaustedError("no credit remaining")))
+    with open(rb.METADATA_PATH, encoding="utf-8") as f:
+        original = f.read()
+
+    run(FakeGraph(), resume=True)
+
+    with open(rb.METADATA_PATH, encoding="utf-8") as f:
+        assert f.read() == original
+
+
+def test_resume_refuses_a_file_whose_rows_came_from_another_split(harness, splits, monkeypatch):
+    run, rows = harness
+    monkeypatch.setattr(rb, "build_graph", lambda: FakeGraph())
+    rb.run_benchmark(split="heldout")
+    os.remove(rb.METADATA_PATH)
+    graph = FakeGraph()
+    monkeypatch.setattr(rb, "build_graph", lambda: graph)
+
+    with pytest.raises(SystemExit) as exc:
+        rb.run_benchmark(split="all", resume=True)  # every heldout id is also in "all"
+
+    assert "not 'all'" in str(exc.value)
+    assert graph.invoked == []
 
 
 # --- the split is recorded with every run ---------------------------------------
@@ -475,3 +534,14 @@ def test_an_all_questions_run_records_split_all_with_no_file_hash(harness):
         metadata = json.load(f)
     assert metadata["split"] == "all" and metadata["split_file_sha256"] is None
     assert {r["split"] for r in rows()} == {"all"}
+
+
+def test_resume_refuses_a_different_split_even_with_a_sidecar(harness, splits, monkeypatch):
+    run, rows = harness
+    monkeypatch.setattr(rb, "build_graph", lambda: FakeGraph())
+    rb.run_benchmark(split="heldout")
+
+    with pytest.raises(SystemExit) as exc:
+        rb.run_benchmark(split="all", resume=True)
+
+    assert "split" in str(exc.value)

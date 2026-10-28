@@ -6,7 +6,7 @@ baseline-versus-ablation pair must stay silent; anything else that mixes known
 and unknown, or two different splits, is a comparison of different questions.
 """
 
-from scripts.compare_ablation import is_correct, mcnemar_exact_two_sided, split_warning
+from scripts.compare_ablation import is_correct, mcnemar_exact_two_sided, pair_rows, split_warning
 
 
 def rows(*splits):
@@ -51,3 +51,19 @@ def test_mcnemar_on_the_published_ablation_still_gives_p_0_0072():
     # 17 fixed, 4 broken: the headline in the README, which this guards against drifting.
     assert round(mcnemar_exact_two_sided(17, 4), 4) == 0.0072
     assert is_correct({"correct": "True"}) and not is_correct({"correct": "False"})
+
+
+def test_duplicated_question_ids_pair_row_for_row():
+    baseline = [{"question_id": "137", "correct": "True"}, {"question_id": "137", "correct": "False"}]
+    new = [{"question_id": "137", "correct": "True"}, {"question_id": "137", "correct": "True"}]
+
+    paired = pair_rows(baseline, new)
+
+    assert paired == list(zip(baseline, new))
+
+
+def test_unmatched_new_rows_are_left_out():
+    baseline = [{"question_id": "1"}]
+    new = [{"question_id": "1"}, {"question_id": "1"}, {"question_id": "2"}]
+
+    assert pair_rows(baseline, new) == [(baseline[0], new[0])]

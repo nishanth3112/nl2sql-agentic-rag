@@ -14,7 +14,7 @@ Usage:
 Configuration resolution, in precedence order:
   1. An explicit --flag on the command line always wins.
   2. Otherwise the field is read from --metadata (default
-     eval/run_metadata.json), the sidecar run_benchmark.py now writes.
+     the file next to the CSV), the sidecar run_benchmark.py now writes.
   3. Otherwise model fields become "unknown (pre-tracking)".
 
 There is deliberately NO fallback for run_timestamp. If no metadata file
@@ -50,7 +50,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.config import settings  # noqa: E402
 from src.db.snowflake_connection import get_snowflake_connection  # noqa: E402
 
-DEFAULT_METADATA_PATH = "eval/run_metadata.json"
 UNKNOWN = "unknown (pre-tracking)"
 
 # CSV columns that exist in results.csv but not in EVAL_RESULTS. "index" is
@@ -95,8 +94,9 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--config-label", required=True, help="Short name for this run, e.g. 'baseline'.")
     parser.add_argument(
         "--metadata",
-        default=DEFAULT_METADATA_PATH,
-        help=f"Run metadata sidecar written by run_benchmark.py (default: {DEFAULT_METADATA_PATH}).",
+        default=None,
+        help="Run metadata sidecar written by run_benchmark.py (default: the one next to --csv, "
+        "results_<stamp>.csv -> run_metadata_<stamp>.json).",
     )
 
     # Manual overrides. All optional; each one beats the metadata file.
@@ -109,7 +109,13 @@ def parse_args(argv=None) -> argparse.Namespace:
         help="Whether evidence was fed into agent prompts for this run.",
     )
 
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.metadata is None:
+        # Each run writes its own pair of files, so a fixed default would attach
+        # another run's split and models to this CSV.
+        csv_path = Path(args.csv)
+        args.metadata = str(csv_path.with_name(csv_path.name.replace("results", "run_metadata", 1)).with_suffix(".json"))
+    return args
 
 
 def load_metadata(path: str) -> dict:

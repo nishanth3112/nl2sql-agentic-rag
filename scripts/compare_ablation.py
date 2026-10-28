@@ -17,6 +17,7 @@ Usage:
 
 import csv
 import sys
+from collections import Counter
 from math import comb
 
 
@@ -41,6 +42,25 @@ def split_warning(baseline, new):
         shown = [sorted(s) or ["unknown (written before splits)"] for s in splits]
         return f"baseline split {shown[0]} vs new split {shown[1]}: these runs did not answer the same questions."
     return None
+
+
+def pair_rows(baseline, new):
+    """
+    Pair rows by (question_id, occurrence), not by question_id alone. BIRD repeats
+    question_id 137 and 138 on two rows each; a plain dict would match both new
+    rows to the last baseline row and add false discordant pairs to McNemar.
+    """
+    by_id = {}
+    for r in baseline:
+        by_id.setdefault(r["question_id"], []).append(r)
+    seen = Counter()
+    paired = []
+    for r in new:
+        qid = r["question_id"]
+        if seen[qid] < len(by_id.get(qid, [])):
+            paired.append((by_id[qid][seen[qid]], r))
+        seen[qid] += 1
+    return paired
 
 
 def is_correct(row):
@@ -99,8 +119,7 @@ def main():
 
     # Align on question_id rather than position, so a reordered or partial run
     # cannot silently compare two different questions.
-    b_by_id = {r["question_id"]: r for r in baseline}
-    paired = [(b_by_id[r["question_id"]], r) for r in new if r["question_id"] in b_by_id]
+    paired = pair_rows(baseline, new)
     unmatched = len(new) - len(paired)
     if unmatched:
         print(f"WARNING: {unmatched} rows in the new run had no baseline counterpart\n")

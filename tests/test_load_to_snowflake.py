@@ -8,6 +8,7 @@ real COPY -- see the migration in snowflake_sql/schema.sql.
 
 import csv
 import json
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -373,3 +374,12 @@ def test_a_run_without_a_split_still_loads_into_a_runs_table_that_lacks_the_colu
 
     (sql, params), = conn.inserts()
     assert "split" not in sql
+
+
+def test_metadata_defaults_to_the_sidecar_next_to_the_csv():
+    args = loader.parse_args(["--csv", "eval/results_20261028T101500.csv", "--config-label", "x"])
+
+    assert args.metadata == str(Path("eval/run_metadata_20261028T101500.json"))
+    assert loader.parse_args(["--csv", "eval/results.csv", "--config-label", "x"]).metadata == str(
+        Path("eval/run_metadata.json")
+    )

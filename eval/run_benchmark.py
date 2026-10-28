@@ -182,6 +182,39 @@ def write_results(results: list) -> None:
         writer.writerows(results)
 
 
+def run_config(split: str) -> dict:
+    """The settings that decide what a row means; a resumed run must still match them."""
+    return {
+        "planner_provider": settings.planner_provider,
+        "planner_model": settings.planner_model,
+        "generator_provider": settings.generator_provider,
+        "generator_model": settings.generator_model,
+        "classifier_provider": settings.classifier_provider,
+        "classifier_model": settings.classifier_model,
+        "include_evidence_in_prompts": settings.include_evidence_in_prompts,
+        "split": split,
+    }
+
+
+def check_resume_matches_metadata(split: str) -> bool:
+    """
+    Refuse to resume under a different config than the file was started with.
+    Returns whether a metadata file exists; when it does, it is left untouched,
+    since rewriting it would relabel the earlier rows with the new models.
+    """
+    if not os.path.exists(METADATA_PATH):
+        return False
+    with open(METADATA_PATH, encoding="utf-8") as f:
+        recorded = json.load(f)
+    changed = {k: (recorded.get(k), v) for k, v in run_config(split).items() if recorded.get(k) != v}
+    if changed:
+        raise SystemExit(
+            f"Cannot resume {RESULTS_PATH}: the run was started with a different config than now "
+            f"(recorded vs current): {changed}. Restore .env and the split, or start a new run."
+        )
+    return True
+
+
 def write_run_metadata(total_questions: int, split: str) -> None:
     """
     Record which configuration produced this run, alongside results.csv.
@@ -203,16 +236,9 @@ def write_run_metadata(total_questions: int, split: str) -> None:
     """
     metadata = {
         "run_timestamp": datetime.datetime.now().astimezone().isoformat(),
-        "planner_provider": settings.planner_provider,
-        "planner_model": settings.planner_model,
-        "generator_provider": settings.generator_provider,
-        "generator_model": settings.generator_model,
-        "classifier_provider": settings.classifier_provider,
-        "classifier_model": settings.classifier_model,
-        "include_evidence_in_prompts": settings.include_evidence_in_prompts,
+        **run_config(split),
         "total_questions": total_questions,
-        # Which questions these are. Two runs are only comparable on the same split.
-        "split": split,
+        # Two runs are only comparable on the same split.
         "split_file_sha256": split_file_sha256(split),
         # The prices est_cost_usd was computed with; see src/pricing.py.
         "pricing_as_of": PRICING_AS_OF,
@@ -272,10 +298,6 @@ def run_benchmark(limit: int | None = None, split: str = ALL_SPLIT, resume: bool
     else:
         print(f"Running split '{split}': {len(examples)} examples.\n")
 
-    # Both the model settings and the question count are known now, before any
-    # work happens -- so the config record survives even if the run dies.
-    write_run_metadata(len(examples), split)
-
     # Resume support (only when asked for): skip the questions the results file
     # already holds and append the rest, so a long run survives interruption
     # across sessions. Matched by question_id, not position, so the file can
@@ -283,7 +305,13 @@ def run_benchmark(limit: int | None = None, split: str = ALL_SPLIT, resume: bool
     # a set: BIRD repeats a question_id on two rows, and each row is done once.
     results: list = []
     done: Counter = Counter()
-    if resume and os.path.exists(RESULTS_PATH):
+    if resume and not os.path.exists(RESULTS_PATH):
+        raise SystemExit(
+            f"Cannot resume: {RESULTS_PATH} does not exist. Point BENCHMARK_RESULTS_PATH at the file to continue."
+        )
+    resuming = resume
+    if resuming:
+        has_metadata = check_resume_matches_metadata(split)
         results = read_existing_results()
         done = Counter(str(r["question_id"]) for r in results)
         unknown = set(done) - {str(ex.get("question_id")) for ex in examples}
@@ -292,8 +320,16 @@ def run_benchmark(limit: int | None = None, split: str = ALL_SPLIT, resume: bool
                 f"Cannot resume {RESULTS_PATH}: it holds question_ids outside split '{split}' "
                 f"(e.g. {sorted(unknown)[:3]}). Resume with the same split and limit it was started with."
             )
+        other_splits = {r["split"] for r in results if r.get("split")} - {split}
+        if other_splits:
+            raise SystemExit(f"Cannot resume {RESULTS_PATH}: it holds rows from split {sorted(other_splits)}, not '{split}'.")
         if results:
             print(f"Resuming: {len(results)} questions already recorded, {len(examples) - len(results)} to go.\n")
+
+    # Written before any work happens, so the config record survives even if
+    # the run dies. A resume keeps the original record: it already matches.
+    if not (resuming and has_metadata):
+        write_run_metadata(len(examples), split)
 
     correct = sum(1 for r in results if is_correct_row(r))
     start_time = time.monotonic()
