@@ -75,6 +75,30 @@ reported here. A fresh 500-question baseline and 150-question ablation under the
 current configuration is the documented next step. Until it exists, read 44.20%
 and +8.67pp as results for the configuration above.
 
+### Held-out baseline, current configuration
+
+First fresh run under the configuration the code now has. One run, so no
+confidence interval, and not a like-for-like comparison with the 44.20% above
+(500 questions, a different classifier, different questions).
+
+| Difficulty | Accuracy |
+|---|---|
+| simple | 59.43% (63/106) |
+| moderate | 44.83% (78/174) |
+| challenging | 21.43% (15/70) |
+| **overall** | **44.57% (156/350)** |
+
+- **n:** 350 rows (349 question ids; id 137 appears on two rows), split `heldout`, 1 run.
+- **Models:** `gpt-5-mini` planner and generator, `openai/gpt-oss-20b` (Groq) classifier. `evidence` not in prompts.
+- **Date and cost:** 2026-10-29, about $1.53 (`est_cost_usd`, prices as of 2026-10-25), $0.0044 per question.
+- **Files:** `eval/results_20261029T131422.csv`, `eval/run_metadata_20261029T131422.json`.
+- The run stalled at 100 rows and was resumed once with `--resume`; the CSV holds each row once.
+
+Weakest databases: `california_schools` 14.29% (3/21), `financial` 27.27% (6/22),
+`thrombosis_prediction` 28.57% (10/35). Strongest: `european_football_2` and
+`superhero`, both 66.67% (24/36). Cells this small move a lot on a single question.
+Later phases compare against this file, on the held-out split only.
+
 ### Per-database accuracy — and the finding that matters
 
 | Database | Columns | Accuracy |
