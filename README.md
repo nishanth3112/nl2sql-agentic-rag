@@ -75,6 +75,30 @@ reported here. A fresh 500-question baseline and 150-question ablation under the
 current configuration is the documented next step. Until it exists, read 44.20%
 and +8.67pp as results for the configuration above.
 
+### Held-out baseline, current configuration
+
+First fresh run under the configuration the code now has. One run, so no
+confidence interval, and not a like-for-like comparison with the 44.20% above
+(500 questions, a different classifier, different questions).
+
+| Difficulty | Accuracy |
+|---|---|
+| simple | 59.43% (63/106) |
+| moderate | 44.83% (78/174) |
+| challenging | 21.43% (15/70) |
+| **overall** | **44.57% (156/350)** |
+
+- **n:** 350 rows (349 question ids; id 137 appears on two rows), split `heldout`, 1 run.
+- **Models:** `gpt-5-mini` planner and generator, `openai/gpt-oss-20b` (Groq) classifier. `evidence` not in prompts.
+- **Date and cost:** 2026-10-29, about $1.53 (`est_cost_usd`, prices as of 2026-10-25), $0.0044 per question.
+- **Files:** `eval/results_20261029T131422.csv`, `eval/run_metadata_20261029T131422.json`.
+- The run stalled at 100 rows and was resumed once with `--resume`; the CSV holds each row once.
+
+Weakest databases: `california_schools` 14.29% (3/21), `financial` 27.27% (6/22),
+`thrombosis_prediction` 28.57% (10/35). Strongest: `european_football_2` and
+`superhero`, both 66.67% (24/36). Cells this small move a lot on a single question.
+Later phases compare against this file, on the held-out split only.
+
 ### Per-database accuracy — and the finding that matters
 
 | Database | Columns | Accuracy |
@@ -273,7 +297,7 @@ wrong-but-valid failure documented below instead of guessing "Ferrari".
 
 ## The eval pipeline
 
-`eval/results.csv` is one file, overwritten on every run. That is fine for a
+Each benchmark run writes its own timestamped CSV. A folder of CSVs is fine for a
 single experiment and useless for regression testing: it cannot answer *did
 accuracy change, and when* — the only question worth asking about a system whose
 outputs are non-deterministic. Three of the four agent steps call an LLM, so the
@@ -290,10 +314,11 @@ DirectQuery.
 Airflow runs the whole thing weekly — not daily, because each run is 150
 questions of real, paid LLM calls:
 
-1. **`run_benchmark`** — the 150-question slice, into a *timestamped* CSV.
-   Timestamped because the harness **resumes** from whatever its results file
-   already holds: pointed at last week's file it would skip every question, do
-   nothing, and emit byte-identical output.
+1. **`run_benchmark`** — the 150-question **calibration split** (all 11
+   databases; see [Splits](#splits)), into a *timestamped* CSV. The harness
+   refuses an existing results file unless told to resume, so a reused path
+   fails loudly instead of skipping every question and emitting byte-identical
+   output.
 2. **`load_to_snowflake`** — mints a `run_id`, inserts the parent run, bulk
    loads rows via `write_pandas`. It refuses a CSV whose SHA-256 already exists
    and exits non-zero. There is deliberately no skip flag: on a schedule,
@@ -306,9 +331,11 @@ questions of real, paid LLM calls:
 
 ### The drift check, and the confound it surfaced
 
-It compares `db_id_set_hash` **before** it compares accuracy. If two runs cover
-different database sets it fails saying so, rather than reporting a delta that
-means nothing. Only when coverage matches does it run McNemar's exact test on
+It compares the run's `split` and then `db_id_set_hash` **before** it compares
+accuracy. If two runs are on different splits, or cover different database sets,
+it fails saying so, rather than reporting a delta that means nothing. A baseline
+recorded before splits existed has no split, so point
+`nl2sql_baseline_run_id` at a calibration-split run. Only when coverage matches does it run McNemar's exact test on
 the paired per-question outcomes — imported from `scripts/compare_ablation.py`,
 the same implementation behind the +8.67pp result above, not a second copy free
 to drift from it.
@@ -424,12 +451,35 @@ still apply, since every query spends real API budget.
 
 **Benchmark:**
 ```bash
-uv run python -m eval.run_benchmark               # full 500
-BENCHMARK_LIMIT=50 uv run python -m eval.run_benchmark   # quick slice
+BENCHMARK_SPLIT=heldout uv run python -m eval.run_benchmark       # 350 held-out questions
+BENCHMARK_SPLIT=calibration uv run python -m eval.run_benchmark   # 150 calibration questions
+uv run python -m eval.run_benchmark                               # all 500
+BENCHMARK_LIMIT=5 BENCHMARK_SPLIT=calibration uv run python -m eval.run_benchmark   # plumbing check only
 ```
-Results checkpoint to `eval/results.csv` every 10 questions, and a re-run resumes
-from whatever is already there — a full run takes hours, and interruptions
-shouldn't cost the whole thing.
+Every run writes a new `eval/results_<timestamp>.csv` and `eval/run_metadata_<timestamp>.json`
+(the models per agent role, the split, and a hash of the split file), and checkpoints
+every 10 questions. It **refuses** to start if the results file already exists. To
+continue an interrupted run, set `BENCHMARK_RESULTS_PATH` to its file and add
+`--resume`; resuming matches on `question_id` and refuses a file that holds questions
+outside the chosen split. `BENCHMARK_LIMIT` keeps the first N questions of the split,
+which still cluster in a few databases: use it to check plumbing, never to report a
+number. Load a run with `--csv` and `--metadata` pointing at its two files.
+
+`scripts/diagnose_failures.py`, `diagnose_by_db.py`, `inspect_flips.py` and
+`compare_runs.py` still read a fixed `eval/results.csv` (gitignored): copy the run's CSV there
+first.
+
+### Splits
+
+The 500 Mini-Dev questions are split into 150 **calibration** and 350 **held-out**
+questions, stratified by database × difficulty so both cover all 11 databases (the
+old "first 150 questions" slice covered 4). Prompts, semantic definitions and
+few-shot examples are tuned on calibration questions only; held-out questions are
+only ever scored. The question IDs are committed in `eval/splits/`, with the seed
+and a hash of the `dev.json` they came from, and `uv run python -m scripts.make_split`
+regenerates them byte for byte. `dev.json` repeats `question_id` 137 and 138 on two
+rows each, so the split is by id and each pair stays in one split (498 ids, 500 rows).
+Compare two runs only when they are on the same split.
 
 Each row also records what the question cost: `llm_calls`, tokens by type
 (`prompt_tokens`, `cached_prompt_tokens`, `completion_tokens`,

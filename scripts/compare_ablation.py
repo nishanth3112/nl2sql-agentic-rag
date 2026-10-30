@@ -17,6 +17,7 @@ Usage:
 
 import csv
 import sys
+from collections import Counter
 from math import comb
 
 
@@ -24,6 +25,42 @@ def load(path, n=None):
     with open(path, encoding="utf-8", errors="replace") as f:
         rows = list(csv.DictReader(f))
     return rows[:n] if n else rows
+
+
+def split_warning(baseline, new):
+    """
+    A message if the two runs are not known to be on the same split, else None.
+
+    Runs written before splits existed have no split column; two of those are
+    compared silently (that is the committed baseline and ablation pair). A
+    mixed pair, or two different splits, answered different questions.
+    """
+    splits = [{r["split"] for r in rows if r.get("split")} for rows in (baseline, new)]
+    if not splits[0] and not splits[1]:
+        return None
+    if splits[0] != splits[1]:
+        shown = [sorted(s) or ["unknown (written before splits)"] for s in splits]
+        return f"baseline split {shown[0]} vs new split {shown[1]}: these runs did not answer the same questions."
+    return None
+
+
+def pair_rows(baseline, new):
+    """
+    Pair rows by (question_id, occurrence), not by question_id alone. BIRD repeats
+    question_id 137 and 138 on two rows each; a plain dict would match both new
+    rows to the last baseline row and add false discordant pairs to McNemar.
+    """
+    by_id = {}
+    for r in baseline:
+        by_id.setdefault(r["question_id"], []).append(r)
+    seen = Counter()
+    paired = []
+    for r in new:
+        qid = r["question_id"]
+        if seen[qid] < len(by_id.get(qid, [])):
+            paired.append((by_id[qid][seen[qid]], r))
+        seen[qid] += 1
+    return paired
 
 
 def is_correct(row):
@@ -73,13 +110,16 @@ def main():
     baseline = load(baseline_path, n)
     new = new[:n]
 
+    warning = split_warning(baseline, new)
+    if warning:
+        print(f"WARNING: {warning}")
+
     if len(baseline) != len(new):
         print(f"WARNING: comparing {len(baseline)} baseline rows against {len(new)} new rows")
 
     # Align on question_id rather than position, so a reordered or partial run
     # cannot silently compare two different questions.
-    b_by_id = {r["question_id"]: r for r in baseline}
-    paired = [(b_by_id[r["question_id"]], r) for r in new if r["question_id"] in b_by_id]
+    paired = pair_rows(baseline, new)
     unmatched = len(new) - len(paired)
     if unmatched:
         print(f"WARNING: {unmatched} rows in the new run had no baseline counterpart\n")

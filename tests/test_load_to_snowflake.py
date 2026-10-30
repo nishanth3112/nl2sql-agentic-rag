@@ -8,6 +8,7 @@ real COPY -- see the migration in snowflake_sql/schema.sql.
 
 import csv
 import json
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -29,13 +30,15 @@ OLD_RUNS_COLUMNS = [
 COMMITTED = {"eval/results_500_baseline.csv": 500, "eval/results_150_with_evidence.csv": 150}
 
 
-def _table_columns(cost=True, pricing=True):
+def _table_columns(cost=True, pricing=True, split=True):
     rows = [("EVAL_RESULTS", c) for c in OLD_RESULTS_COLUMNS]
     if cost:
         rows += [("EVAL_RESULTS", c) for c in COST_COLUMNS]
     rows += [("EVAL_RUNS", c) for c in OLD_RUNS_COLUMNS]
     if pricing:
         rows.append(("EVAL_RUNS", "PRICING_AS_OF"))
+    if split:
+        rows.append(("EVAL_RUNS", "SPLIT"))
     return rows
 
 
@@ -315,3 +318,68 @@ def test_a_metadata_file_without_a_pricing_date_gives_none():
     config = loader.resolve_config(args, {"run_timestamp": "2026-10-25T12:00:00+00:00"})
 
     assert config["pricing_as_of"] is None
+
+
+def test_the_split_column_is_a_run_property_not_a_result_column(tmp_path):
+    rows = [{"index": 0, "question_id": 100, "db_id": "superhero", "question": "q", "evidence": "",
+             "gold_sql": "SELECT 1", "predicted_sql": "SELECT 1", "correct": True, "difficulty": "simple",
+             "retries": 0, "error_classes_hit": "", "fatal_error": "", "schema_context_chars": 1, "seconds": 1.0,
+             "split": "heldout"}]
+
+    df = loader.prepare_results(str(_new_csv(tmp_path, rows)), "run-1")
+
+    assert "SPLIT" not in df.columns
+
+
+# --- the split recorded on the run ----------------------------------------------
+
+
+def test_a_metadata_file_without_a_split_gives_none():
+    args = loader.parse_args(["--csv", "x.csv", "--config-label", "t"])
+
+    config = loader.resolve_config(args, {"run_timestamp": "2026-10-25T12:00:00+00:00"})
+
+    assert config["split"] is None
+
+
+def test_a_run_with_a_split_records_it_on_the_runs_row(tmp_path, snowflake):
+    install, written = snowflake
+    conn = install(_table_columns())
+
+    assert _main(_new_csv(tmp_path), _metadata(tmp_path, pricing_as_of="2026-10-25", split="heldout")) == 0
+
+    (sql, params), = conn.inserts()
+    assert ", split)" in sql and params[-1] == "heldout"
+    assert sql.count("%s") == len(params)
+    (df,) = written
+    assert "SPLIT" not in df.columns
+
+
+def test_a_run_with_a_split_is_refused_before_anything_is_written_when_the_runs_table_lacks_it(tmp_path, snowflake):
+    install, written = snowflake
+    conn = install(_table_columns(split=False))
+
+    with pytest.raises(SystemExit) as exc:
+        _main(_new_csv(tmp_path), _metadata(tmp_path, pricing_as_of="2026-10-25", split="heldout"))
+
+    assert "EVAL_RUNS: split" in str(exc.value) and "Nothing was written" in str(exc.value)
+    assert conn.inserts() == [] and written == []
+
+
+def test_a_run_without_a_split_still_loads_into_a_runs_table_that_lacks_the_column(tmp_path, snowflake):
+    install, written = snowflake
+    conn = install(_table_columns(split=False))
+
+    assert _main(_new_csv(tmp_path), _metadata(tmp_path, pricing_as_of="2026-10-25")) == 0
+
+    (sql, params), = conn.inserts()
+    assert "split" not in sql
+
+
+def test_metadata_defaults_to_the_sidecar_next_to_the_csv():
+    args = loader.parse_args(["--csv", "eval/results_20261028T101500.csv", "--config-label", "x"])
+
+    assert args.metadata == str(Path("eval/run_metadata_20261028T101500.json"))
+    assert loader.parse_args(["--csv", "eval/results.csv", "--config-label", "x"]).metadata == str(
+        Path("eval/run_metadata.json")
+    )

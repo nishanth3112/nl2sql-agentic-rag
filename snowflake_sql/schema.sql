@@ -91,3 +91,11 @@ ALTER TABLE EVAL_RESULTS ADD COLUMN IF NOT EXISTS
 -- The date the prices behind est_cost_usd were read (src/pricing.py).
 ALTER TABLE EVAL_RUNS ADD COLUMN IF NOT EXISTS
     pricing_as_of  VARCHAR(10);
+
+-- Which committed split a run covered: calibration, heldout or all
+-- (eval/splits/, written to the run metadata by eval/run_benchmark.py). NULL for
+-- runs recorded before splits existed, such as the two seeded runs. Compare
+-- runs only within the same split. Apply this BEFORE loading a CSV whose
+-- metadata has a split, or the loader refuses to start.
+ALTER TABLE EVAL_RUNS ADD COLUMN IF NOT EXISTS
+    split  VARCHAR(20);

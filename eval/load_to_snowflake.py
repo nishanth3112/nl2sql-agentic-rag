@@ -14,7 +14,7 @@ Usage:
 Configuration resolution, in precedence order:
   1. An explicit --flag on the command line always wins.
   2. Otherwise the field is read from --metadata (default
-     eval/run_metadata.json), the sidecar run_benchmark.py now writes.
+     the file next to the CSV), the sidecar run_benchmark.py now writes.
   3. Otherwise model fields become "unknown (pre-tracking)".
 
 There is deliberately NO fallback for run_timestamp. If no metadata file
@@ -50,13 +50,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from src.config import settings  # noqa: E402
 from src.db.snowflake_connection import get_snowflake_connection  # noqa: E402
 
-DEFAULT_METADATA_PATH = "eval/run_metadata.json"
 UNKNOWN = "unknown (pre-tracking)"
 
 # CSV columns that exist in results.csv but not in EVAL_RESULTS. "index" is
 # the runner's loop counter -- positional, meaningless once rows are in a
-# table with its own identity column.
-DROP_COLUMNS = ["index"]
+# table with its own identity column. "split" describes the whole run, so it
+# belongs to EVAL_RUNS, not to each result row.
+DROP_COLUMNS = ["index", "split"]
 
 MODEL_FIELDS = [
     "planner_provider",
@@ -94,8 +94,9 @@ def parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--config-label", required=True, help="Short name for this run, e.g. 'baseline'.")
     parser.add_argument(
         "--metadata",
-        default=DEFAULT_METADATA_PATH,
-        help=f"Run metadata sidecar written by run_benchmark.py (default: {DEFAULT_METADATA_PATH}).",
+        default=None,
+        help="Run metadata sidecar written by run_benchmark.py (default: the one next to --csv, "
+        "results_<stamp>.csv -> run_metadata_<stamp>.json).",
     )
 
     # Manual overrides. All optional; each one beats the metadata file.
@@ -108,7 +109,13 @@ def parse_args(argv=None) -> argparse.Namespace:
         help="Whether evidence was fed into agent prompts for this run.",
     )
 
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.metadata is None:
+        # Each run writes its own pair of files, so a fixed default would attach
+        # another run's split and models to this CSV.
+        csv_path = Path(args.csv)
+        args.metadata = str(csv_path.with_name(csv_path.name.replace("results", "run_metadata", 1)).with_suffix(".json"))
+    return args
 
 
 def load_metadata(path: str) -> dict:
@@ -142,6 +149,9 @@ def resolve_config(args: argparse.Namespace, metadata: dict) -> dict:
     config["run_timestamp"] = run_timestamp
     # None for a run recorded before cost tracing; the EVAL_RUNS column stays NULL.
     config["pricing_as_of"] = metadata.get("pricing_as_of")
+    # Which questions the run covered (calibration, heldout, all). None for a run
+    # recorded before splits existed; the EVAL_RUNS column stays NULL.
+    config["split"] = metadata.get("split")
 
     if args.include_evidence is not None:
         config["include_evidence_in_prompts"] = args.include_evidence == "true"
@@ -286,8 +296,9 @@ def insert_run(conn, run_id: str, config_label: str, config: dict, total_questio
     Write the parent EVAL_RUNS row. Must happen before the results load:
     EVAL_RESULTS.run_id carries a foreign key to this table.
 
-    pricing_as_of is written only when the run has one, so a run from before
-    cost tracing still loads into an EVAL_RUNS table that lacks the column.
+    pricing_as_of and split are written only when the run has one, so a run from
+    before cost tracing or splits still loads into an EVAL_RUNS table that lacks
+    the column.
     """
     columns = [
         "run_id", "run_timestamp", "config_label", "include_evidence_in_prompts",
@@ -313,6 +324,9 @@ def insert_run(conn, run_id: str, config_label: str, config: dict, total_questio
     if config.get("pricing_as_of"):
         columns.append("pricing_as_of")
         values.append(config["pricing_as_of"])
+    if config.get("split"):
+        columns.append("split")
+        values.append(config["split"])
 
     placeholders = ", ".join(["%s"] * len(columns))
     conn.cursor().execute(
@@ -343,6 +357,7 @@ def main(argv=None) -> int:
     print(f"run_timestamp:   {config['run_timestamp']} -> {to_naive_utc(config['run_timestamp'])} UTC (NTZ)")
     print(f"include_evidence:{config['include_evidence_in_prompts']}")
     print(f"pricing_as_of:   {config['pricing_as_of']}")
+    print(f"split:           {config['split']}")
     for field in MODEL_FIELDS:
         print(f"{field:21}{config[field]}")
     print(f"source_file_hash {file_hash}")
@@ -371,7 +386,7 @@ def main(argv=None) -> int:
             conn,
             {
                 "EVAL_RESULTS": list(df.columns),
-                "EVAL_RUNS": ["pricing_as_of"] if config.get("pricing_as_of") else [],
+                "EVAL_RUNS": [c for c in ("pricing_as_of", "split") if config.get(c)],
             },
         )
         if missing:
