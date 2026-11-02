@@ -1,0 +1,14 @@
+{
+  "run_timestamp": "2026-10-29T22:13:10.628193-04:00",
+  "planner_provider": "openai",
+  "planner_model": "gpt-5-mini",
+  "generator_provider": "openai",
+  "generator_model": "gpt-5-mini",
+  "classifier_provider": "openai",
+  "classifier_model": "openai/gpt-oss-20b",
+  "include_evidence_in_prompts": false,
+  "split": "calibration",
+  "total_questions": 150,
+  "split_file_sha256": "fc41c1dd46aad99409e830fb45ce46cc7089fb8e5d4cf09204e6269678a54f0b",
+  "pricing_as_of": "2026-10-25"
+}
