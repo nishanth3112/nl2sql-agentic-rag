@@ -1,0 +1,861 @@
+index,question_id,db_id,question,evidence,gold_sql,predicted_sql,correct,difficulty,retries,error_classes_hit,fatal_error,schema_context_chars,seconds,llm_calls,prompt_tokens,cached_prompt_tokens,completion_tokens,reasoning_tokens,est_cost_usd,retriever_seconds,planner_seconds,generator_seconds,executor_seconds,classifier_seconds,split
+0,1476,debit_card_specializing,What was the difference in gas consumption between CZK-paying customers and EUR-paying customers in 2012?,Year 2012 can be presented as Between 201201 And 201212; The first 4 strings of the Date values in the yearmonth table can represent year; Difference in Consumption = CZK customers consumption in 2012 - EUR customers consumption in 2012,"SELECT SUM(IIF(T1.Currency = 'CZK', T2.Consumption, 0)) - SUM(IIF(T1.Currency = 'EUR', T2.Consumption, 0)) FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE SUBSTR(T2.Date, 1, 4) = '2012'","SELECT COALESCE(SUM(CASE WHEN customers.Currency = 'CZK' THEN yearmonth.Consumption ELSE 0 END) - SUM(CASE WHEN customers.Currency = 'EUR' THEN yearmonth.Consumption ELSE 0 END), 0) AS difference
+FROM yearmonth
+JOIN customers ON yearmonth.CustomerID = customers.CustomerID
+WHERE yearmonth.Date LIKE '2012%' AND customers.Currency IN ('CZK','EUR') AND yearmonth.Consumption IS NOT NULL;",True,challenging,0,,,1675,18.7,2,1711,0,1363,1024,0.003154,0.359,9.101,8.915,0.245,0,calibration
+1,1479,debit_card_specializing,Which year recorded the most consumption of gas paid in CZK?,The first 4 strings of the Date values in the yearmonth table can represent year.,"SELECT SUBSTR(T2.Date, 1, 4) FROM customers AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Currency = 'CZK' GROUP BY SUBSTR(T2.Date, 1, 4) ORDER BY SUM(T2.Consumption) DESC LIMIT 1","SELECT substr(t.Date,1,4) AS year
+FROM transactions_1k t
+JOIN customers c ON t.CustomerID = c.CustomerID
+JOIN products p ON t.ProductID = p.ProductID
+WHERE c.Currency = 'CZK'
+  AND t.Date IS NOT NULL
+  AND (p.Description LIKE '%Naft%' OR p.Description LIKE '%Gas%')
+GROUP BY substr(t.Date,1,4)
+ORDER BY SUM(t.Amount * t.Price) DESC
+LIMIT 1;",False,moderate,0,,,1675,21.9,2,1743,0,1687,1280,0.00381,0.215,14.393,6.886,0.011,0,calibration
+2,1493,debit_card_specializing,"In February 2012, what percentage of customers consumed more than 528.3?",February 2012 refers to '201202' in yearmonth.date; The first 4 strings of the Date values in the yearmonth table can represent year; The 5th and 6th string of the date can refer to month.,"SELECT CAST(SUM(IIF(Consumption > 528.3, 1, 0)) AS FLOAT) * 100 / COUNT(CustomerID) FROM yearmonth WHERE Date = '201202'",SELECT (SUM(CASE WHEN Consumption > 528.3 THEN 1.0 ELSE 0.0 END) / COUNT(*)) * 100.0 FROM yearmonth WHERE Date = '201202';,True,simple,0,,,1675,13.0,2,1668,0,1124,896,0.002665,0.283,7.338,4.771,0.569,0,calibration
+3,1498,debit_card_specializing,What is the highest monthly consumption in the year 2012?,The first 4 strings of the Date values in the yearmonth table can represent year; The 5th and 6th string of the date can refer to month.,"SELECT SUM(Consumption) FROM yearmonth WHERE SUBSTR(Date, 1, 4) = '2012' GROUP BY SUBSTR(Date, 5, 2) ORDER BY SUM(Consumption) DESC LIMIT 1",SELECT MAX(Consumption) FROM yearmonth WHERE Date BETWEEN '201201' AND '201212';,False,simple,0,,,1675,9.2,2,1623,0,854,704,0.002114,0.315,5.192,3.206,0.41,0,calibration
+4,1501,debit_card_specializing,"Please list the countries of the gas stations with transactions taken place in June, 2013.",June 2013 refers to '201306'; The first 4 strings of the Date values in the yearmonth table can represent year; The 5th and 6th string of the date can refer to month;,SELECT DISTINCT T2.Country FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID INNER JOIN yearmonth AS T3 ON T1.CustomerID = T3.CustomerID WHERE T3.Date = '201306',"SELECT gasstations.Country
+FROM transactions_1k
+JOIN gasstations ON transactions_1k.GasStationID = gasstations.GasStationID
+WHERE transactions_1k.Date BETWEEN '2013-06-01' AND '2013-06-30'
+GROUP BY gasstations.Country
+ORDER BY gasstations.Country ASC;",False,moderate,0,,,1675,10.4,2,1679,0,992,704,0.002404,0.12,6.204,3.921,0.009,0,calibration
+5,1505,debit_card_specializing,"Among the customers who paid in euro, how many of them have a monthly consumption of over 1000?",Pays in euro = Currency = 'EUR'.,SELECT COUNT(*) FROM yearmonth AS T1 INNER JOIN customers AS T2 ON T1.CustomerID = T2.CustomerID WHERE T2.Currency = 'EUR' AND T1.Consumption > 1000.00,SELECT COUNT(DISTINCT customers.CustomerID) FROM customers JOIN yearmonth ON customers.CustomerID = yearmonth.CustomerID WHERE customers.Currency = 'EUR' AND yearmonth.Consumption > 1000;,False,simple,0,,,1675,10.9,2,1651,0,791,576,0.001995,0.175,7.059,3.445,0.157,0,calibration
+6,1506,debit_card_specializing,Please list the product descriptions of the transactions taken place in the gas stations in the Czech Republic.,Czech Republic can be represented as the Country value in the gasstations table is 'CZE'; ,SELECT DISTINCT T3.Description FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID INNER JOIN products AS T3 ON T1.ProductID = T3.ProductID WHERE T2.Country = 'CZE',"SELECT products.Description
+FROM transactions_1k
+JOIN gasstations ON transactions_1k.GasStationID = gasstations.GasStationID
+JOIN products ON transactions_1k.ProductID = products.ProductID
+WHERE gasstations.Country = 'CZE'
+GROUP BY products.Description
+ORDER BY products.Description ASC;",True,moderate,0,,,1675,10.0,2,1682,0,921,640,0.002262,0.179,6.612,3.214,0.004,0,calibration
+7,1514,debit_card_specializing,What kind of currency did the customer paid at 16:25:00 in 2012/8/24?,'2012/8/24' can be represented by '2012-08-24'; ,SELECT DISTINCT T3.Currency FROM transactions_1k AS T1 INNER JOIN gasstations AS T2 ON T1.GasStationID = T2.GasStationID INNER JOIN customers AS T3 ON T1.CustomerID = T3.CustomerID WHERE T1.Date = '2012-08-24' AND T1.Time = '16:25:00',"SELECT DISTINCT customers.Currency
+FROM transactions_1k
+JOIN customers ON transactions_1k.CustomerID = customers.CustomerID
+WHERE transactions_1k.Date = '2012-08-24'
+  AND transactions_1k.Time = '16:25:00';",True,simple,0,,,1675,10.5,2,1668,0,882,640,0.002181,0.15,6.789,3.499,0.015,0,calibration
+8,1533,debit_card_specializing,For all the people who paid more than 29.00 per unit of product id No.5. Give their consumption status in the August of 2012.,August of 2012 refers to the Date value = '201208' ; Price per unit of product = Price / Amount;,SELECT T2.Consumption FROM transactions_1k AS T1 INNER JOIN yearmonth AS T2 ON T1.CustomerID = T2.CustomerID WHERE T1.Price / T1.Amount > 29.00 AND T1.ProductID = 5 AND T2.Date = '201208',"SELECT yearmonth.Consumption
+FROM transactions_1k
+JOIN yearmonth ON transactions_1k.CustomerID = yearmonth.CustomerID
+WHERE transactions_1k.ProductID = 5
+  AND transactions_1k.Price > 29.00
+  AND yearmonth.Date = '201208'
+GROUP BY yearmonth.CustomerID, yearmonth.Consumption
+ORDER BY yearmonth.CustomerID ASC;",False,moderate,0,,,1675,19.9,2,1765,0,1760,1408,0.003961,0.172,9.88,9.719,0.098,0,calibration
+9,1312,student_club,What's Angela Sanders's major?,"Angela Sanders is the full name; full name refers to first_name, last_name; major refers to major_name.",SELECT T2.major_name FROM member AS T1 INNER JOIN major AS T2 ON T1.link_to_major = T2.major_id WHERE T1.first_name = 'Angela' AND T1.last_name = 'Sanders',SELECT major.major_name FROM member JOIN major ON member.link_to_major = major.major_id WHERE member.first_name = 'Angela' AND member.last_name = 'Sanders';,True,simple,0,,,5751,8.9,2,3922,0,568,384,0.002117,0.261,5.658,2.995,0.002,0,calibration
+10,1317,student_club,"Among the students from the Student_Club who attended the event ""Women's Soccer"", how many of them want a T-shirt that's in medium size?",Women's Soccer is an event name; T-shirt that is in medium size refers to t_shirt_size = 'Medium',SELECT COUNT(T1.event_id) FROM event AS T1 INNER JOIN attendance AS T2 ON T1.event_id = T2.link_to_event INNER JOIN member AS T3 ON T2.link_to_member = T3.member_id WHERE T1.event_name = 'Women''s Soccer' AND T3.t_shirt_size = 'Medium',SELECT COUNT(DISTINCT member.member_id) FROM attendance JOIN member ON attendance.link_to_member = member.member_id JOIN event ON attendance.link_to_event = event.event_id WHERE event.event_name = 'Women''s Soccer' AND member.t_shirt_size = 'Medium';,True,moderate,1,SCHEMA_ERROR,,7611,34.0,4,9207,3584,2702,2112,0.006899,0.307,22.789,10.923,0.007,0.0,calibration
+11,1323,student_club,List all the names of events that had an attendance of over 20 students but were not fundraisers.,name of events refers to event_name; attendance of over 20 students COUNT(event_id) > 20.,SELECT T1.event_name FROM event AS T1 INNER JOIN attendance AS T2 ON T1.event_id = T2.link_to_event GROUP BY T1.event_id HAVING COUNT(T2.link_to_event) > 20 EXCEPT SELECT T1.event_name FROM event AS T1  WHERE T1.type = 'Fundraiser',"SELECT event.event_name
+FROM event
+JOIN attendance ON event.event_id = attendance.link_to_event
+WHERE (event.type IS NULL OR event.type != 'Fundraiser')
+  AND COALESCE(LOWER(event.notes), '') NOT LIKE '%fundrais%'
+GROUP BY event.event_id, event.event_name
+HAVING COUNT(DISTINCT attendance.link_to_member) > 20
+ORDER BY event.event_name ASC;",True,moderate,0,,,6070,19.2,2,4385,0,1690,1344,0.004476,0.131,12.319,6.741,0.003,0,calibration
+12,1331,student_club,What is the amount of the funds that the Vice President received?,'Vice President' is a position of Student Club; funds received refers to amount.,SELECT T2.amount FROM member AS T1 INNER JOIN income AS T2 ON T1.member_id = T2.link_to_member WHERE T1.position = 'Vice President',"SELECT SUM(income.amount) AS amount
+FROM income
+JOIN member ON income.link_to_member = member.member_id
+WHERE (
+  (LOWER(member.position) LIKE '%vice%' AND LOWER(member.position) LIKE '%president%')
+  OR LOWER(member.position) IN ('vp','vice-president','vice president')
+)
+GROUP BY member.member_id, member.first_name, member.last_name;",True,simple,0,,,5624,17.4,2,3953,0,1477,1216,0.003942,0.126,9.208,8.052,0.002,0,calibration
+13,1334,student_club,List the full name of the Student_Club members that grew up in Illinois state.,"full name of member refers to first_name, last_name","SELECT T1.first_name, T1.last_name FROM member AS T1 INNER JOIN zip_code AS T2 ON T1.zip = T2.zip_code WHERE T2.state = 'Illinois'","SELECT first_name || ' ' || last_name AS full_name
+FROM member
+WHERE zip BETWEEN 60001 AND 62999
+  AND position != 'Inactive';",False,simple,0,,,5517,14.5,2,3920,0,1414,1216,0.003808,0.134,5.699,8.609,0.001,0,calibration
+14,1339,student_club,Calculate the total average cost that Elijah Allen spent in the events on September and October.,"Elijah Allen is the full name; full name refers to first_name, last_name; The 5th and 6th string of the expense_date in the expense table can refer to month; events in September and October refers to month(expense_date) = 9 OR month(expense_date) = 10","SELECT AVG(T2.cost) FROM member AS T1 INNER JOIN expense AS T2 ON T1.member_id = T2.link_to_member WHERE T1.last_name = 'Allen' AND T1.first_name = 'Elijah' AND (SUBSTR(T2.expense_date, 6, 2) = '09' OR SUBSTR(T2.expense_date, 6, 2) = '10')","SELECT AVG(event_total) FROM (
+  SELECT SUM(expense.cost) AS event_total
+  FROM expense
+  JOIN budget ON expense.link_to_budget = budget.budget_id
+  JOIN event ON budget.link_to_event = event.event_id
+  JOIN member ON expense.link_to_member = member.member_id
+  WHERE member.first_name = 'Elijah'
+    AND member.last_name = 'Allen'
+    AND CAST(SUBSTR(event.event_date, 6, 2) AS INTEGER) IN (9,10)
+  GROUP BY event.event_id
+);",False,challenging,0,,,6070,21.0,2,4435,0,2116,1664,0.005341,0.155,11.162,9.701,0.001,0,calibration
+15,1361,student_club,What is the total cost of the pizzas for all the events?,total cost of the pizzas refers to SUM(cost) where expense_description = 'Pizza',SELECT SUM(cost) FROM expense WHERE expense_description = 'Pizza',"SELECT COALESCE(SUM(expense.cost), 0) AS total_cost
+FROM expense
+JOIN budget ON expense.link_to_budget = budget.budget_id
+WHERE LOWER(expense.expense_description) LIKE '%pizza%'
+  AND budget.link_to_event IS NOT NULL;",True,simple,0,,,6070,16.3,2,4286,0,1318,1088,0.003707,0.144,10.001,6.132,0.003,0,calibration
+16,1381,student_club,List the name of students that have attended more than 7 events.,"name of students means the full name; full name refers to first_name, last_name; attended more than 7 events refers to COUNT(link_to_event) > 7","SELECT T1.first_name, T1.last_name FROM member AS T1 INNER JOIN attendance AS T2 ON T1.member_id = T2.link_to_member GROUP BY T2.link_to_member HAVING COUNT(T2.link_to_event) > 7","SELECT member.first_name || ' ' || member.last_name
+FROM attendance
+JOIN member ON attendance.link_to_member = member.member_id
+GROUP BY member.member_id, member.first_name, member.last_name
+HAVING COUNT(DISTINCT attendance.link_to_event) > 7;",False,moderate,0,,,5517,12.5,2,3925,0,1200,960,0.003381,0.14,6.612,5.735,0.008,0,calibration
+17,1387,student_club,Which student has been entrusted to manage the budget for the Yearly Kickoff?,"name of students means the full name; full name refers to first_name, last_name;'Yearly Kickoff' is an event name;","SELECT T4.first_name, T4.last_name FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event INNER JOIN expense AS T3 ON T2.budget_id = T3.link_to_budget INNER JOIN member AS T4 ON T3.link_to_member = T4.member_id WHERE T1.event_name = 'Yearly Kickoff'","WITH raw AS (
+  SELECT m.member_id, m.first_name || ' ' || m.last_name AS name, 1 AS rank
+  FROM member m
+  JOIN attendance a ON a.link_to_member = m.member_id
+  JOIN event e ON e.event_id = a.link_to_event
+  WHERE e.event_name = 'Yearly Kickoff' AND m.position = 'Treasurer'
+  UNION ALL
+  SELECT m.member_id, m.first_name || ' ' || m.last_name AS name, 2 AS rank
+  FROM member m
+  JOIN expense ex ON ex.link_to_member = m.member_id
+  JOIN budget b ON b.budget_id = ex.link_to_budget
+  JOIN event e ON e.event_id = b.link_to_event
+  WHERE e.event_name = 'Yearly Kickoff'
+),
+best AS (
+  SELECT member_id, name, MIN(rank) AS rank
+  FROM raw
+  GROUP BY member_id
+)
+SELECT name
+FROM best
+WHERE rank = (SELECT MIN(rank) FROM best);",False,moderate,1,SCHEMA_ERROR,,7611,41.3,4,9243,3584,4239,3392,0.009982,0.3,22.469,18.513,0.007,0.0,calibration
+18,1399,student_club,Did Maya Mclean attend the 'Women's Soccer' event?,"Maya Mclean is the full name; full name refers to first_name, last_name; 'Women's Soccer' is an event_name",SELECT CASE WHEN T3.event_name = 'Women''s Soccer' THEN 'YES' END AS result FROM member AS T1 INNER JOIN attendance AS T2 ON T1.member_id = T2.link_to_member INNER JOIN event AS T3 ON T2.link_to_event = T3.event_id WHERE T1.first_name = 'Maya' AND T1.last_name = 'Mclean',"SELECT CASE WHEN EXISTS(
+  SELECT 1
+  FROM attendance a
+  JOIN member m ON a.link_to_member = m.member_id
+  JOIN event e ON a.link_to_event = e.event_id
+  WHERE lower(m.first_name) = 'maya'
+    AND lower(m.last_name) = 'mclean'
+    AND (
+      e.event_name = 'Women''s Soccer'
+      OR e.event_name LIKE '%Women''s Soccer%'
+      OR e.notes LIKE '%Women''s Soccer%'
+    )
+  LIMIT 1
+) THEN 'Yes' ELSE 'No' END;",False,moderate,0,,,6070,23.9,2,4345,0,1747,1408,0.00458,0.16,11.006,12.68,0.003,0,calibration
+19,1404,student_club,Identify the type of expenses and their total value approved for 'October Meeting' event.,total value refers to SUM(cost); 'October Meeting' is an event name;,"SELECT T1.type, SUM(T3.cost) FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event INNER JOIN expense AS T3 ON T2.budget_id = T3.link_to_budget WHERE T1.event_name = 'October Meeting'","SELECT budget.category, SUM(expense.cost) FROM expense JOIN budget ON expense.link_to_budget = budget.budget_id JOIN event ON budget.link_to_event = event.event_id WHERE event.event_name = 'October Meeting' AND expense.approved = 'true' GROUP BY budget.category ORDER BY SUM(expense.cost) DESC;",False,moderate,0,,,6070,13.4,2,4319,0,1170,896,0.00342,0.152,7.33,5.914,0.003,0,calibration
+20,1409,student_club,Mention the total expense used on 8/20/2019.,total expense refers SUM(cost) where expense_date = '2019-08-20',SELECT SUM(cost) FROM expense WHERE expense_date = '2019-08-20',SELECT SUM(cost) FROM expense WHERE expense_date = '2019-08-20';,True,simple,0,,,6070,11.2,2,4258,0,856,704,0.002777,0.134,6.817,4.189,0.002,0,calibration
+21,1410,student_club,"List out the full name and total cost that member id ""rec4BLdZHS2Blfp4v"" incurred?","full name refers to first_name, last name","SELECT T1.first_name, T1.last_name, SUM(T2.cost) FROM member AS T1 INNER JOIN expense AS T2 ON T1.member_id = T2.link_to_member WHERE T1.member_id = 'rec4BLdZHS2Blfp4v'","SELECT member.first_name || ' ' || member.last_name AS full_name, SUM(expense.cost) AS total_cost
+FROM expense
+JOIN member ON expense.link_to_member = member.member_id
+WHERE expense.link_to_member = 'rec4BLdZHS2Blfp4v'
+GROUP BY member.member_id, member.first_name, member.last_name;",False,simple,0,,,6070,12.7,2,4313,0,1138,896,0.003354,0.193,7.179,5.299,0.001,0,calibration
+22,1427,student_club,What are the budget category of the events located at MU 215 and a guest speaker type with a 0 budget spent?,budget category refers to category; events located at refers to location; type = 'Guest Speaker'; 0 budget spent refers to spent = 0; ,"SELECT DISTINCT T2.category, T1.type FROM event AS T1 INNER JOIN budget AS T2 ON T1.event_id = T2.link_to_event WHERE T1.location = 'MU 215' AND T2.spent = 0 AND T1.type = 'Guest Speaker'","SELECT budget.category
+FROM budget
+JOIN event ON budget.link_to_event = event.event_id
+WHERE event.location = 'MU 215'
+  AND event.type = 'Guest Speaker'
+  AND budget.spent = 0
+GROUP BY budget.category;",False,moderate,0,,,6070,12.7,2,4297,0,1051,832,0.003176,0.158,7.465,5.071,0.002,0,calibration
+23,1152,thrombosis_prediction,What is the ratio of outpatient to inpatient followed up treatment among all the 'SLE' diagnosed patient?,"'SLE' diagnosed patient means Diagnosis = 'SLE'; inpatient refers to Admission = '+'; outpatient refers to Admission = '-'; calculation =  DIVIDE(COUNT(ID) where Diagnosis = 'SLE' and Admission = '+', COUNT(ID) where Diagnosis = 'SLE' and Admission = '-')",SELECT SUM(CASE WHEN Admission = '+' THEN 1.0 ELSE 0 END) / SUM(CASE WHEN Admission = '-' THEN 1 ELSE 0 END) FROM Patient WHERE Diagnosis = 'SLE',"SELECT CASE WHEN SUM(CASE WHEN Admission='+' THEN 1 ELSE 0 END)=0 THEN NULL ELSE SUM(CASE WHEN Admission='-' THEN 1 ELSE 0 END)*1.0 / SUM(CASE WHEN Admission='+' THEN 1 ELSE 0 END) END AS ratio FROM Patient WHERE Diagnosis='SLE' AND Admission IN ('-','+');",False,moderate,0,,,6978,14.1,2,5221,0,1321,1088,0.003947,0.162,7.118,6.816,0.006,0,calibration
+24,1155,thrombosis_prediction,"List the patient ID, sex and birthday of patient with LDH beyond normal range.",LDH beyond normal range refers to LDH > '500';,"SELECT DISTINCT T1.ID, T1.SEX, T1.Birthday FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.LDH > 500","SELECT Patient.ID, Patient.SEX, Patient.Birthday
+FROM Patient
+JOIN Laboratory ON Patient.ID = Laboratory.ID
+WHERE Laboratory.LDH > 500 AND Laboratory.LDH IS NOT NULL
+GROUP BY Patient.ID, Patient.SEX, Patient.Birthday
+ORDER BY Patient.ID ASC;",True,simple,0,,,6978,13.2,2,5266,0,791,512,0.002899,0.153,6.632,6.422,0.013,0,calibration
+25,1157,thrombosis_prediction,"For patients with severe degree of thrombosis, list their ID, sex and disease the patient is diagnosed with.",severe degree of thrombosis refers to thrombosis = 2; disease refers to diagnosis;,"SELECT DISTINCT T1.ID, T1.SEX, T1.Diagnosis FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE T2.Thrombosis = 2","SELECT DISTINCT Examination.ID, Patient.SEX, Patient.Diagnosis
+FROM Examination
+JOIN Patient ON Examination.ID = Patient.ID
+WHERE Examination.Thrombosis = 2;",True,simple,0,,,6978,11.3,2,5244,0,983,768,0.003277,0.141,6.533,4.59,0.003,0,calibration
+26,1171,thrombosis_prediction,How many underage patients were examined during the course of the three-year period from 1990 to 1993?,underage patients refers to year(Birthday) < 18; three-year period from 1990 to 1993 refers to year(`Examination Date`) between '1990' and '1993',"SELECT COUNT(T1.ID) FROM Patient AS T1 INNER JOIN Examination AS T2 ON T1.ID = T2.ID WHERE STRFTIME('%Y', T2.`Examination Date`) BETWEEN '1990' AND '1993' AND STRFTIME('%Y', T2.`Examination Date`) - STRFTIME('%Y', T1.Birthday) < 18","SELECT COUNT(DISTINCT p.ID) FROM Patient p JOIN Examination e ON p.ID = e.ID WHERE e.""Examination Date"" BETWEEN '1990-01-01' AND '1993-12-31' AND p.Birthday IS NOT NULL AND e.""Examination Date"" IS NOT NULL AND (CAST(strftime('%Y', e.""Examination Date"") AS INTEGER) - CAST(strftime('%Y', p.Birthday) AS INTEGER) - CAST((strftime('%m-%d', e.""Examination Date"") < strftime('%m-%d', p.Birthday)) AS INTEGER) < 18);",True,challenging,0,,,6978,16.2,2,5322,0,1662,1280,0.004654,0.154,9.171,6.849,0.004,0,calibration
+27,1192,thrombosis_prediction,List all patients who were followed up at the outpatient clinic who underwent a laboratory test in October 1991 and had a total blood bilirubin level within the normal range.,followed up at the outpatient clinic refers to Admission = '-'; laboratory test in April 1981 refers to Date like '1991-10%'; blood bilirubin level within the normal range refers to T-BIL < 2.0; ,SELECT DISTINCT T1.ID FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.Admission = '-' AND T2.`T-BIL` < 2.0 AND T2.Date LIKE '1991-10-%',"SELECT DISTINCT Patient.ID
+FROM Patient
+JOIN Laboratory ON Patient.ID = Laboratory.ID
+WHERE Patient.Admission = '-'
+  AND Laboratory.Date BETWEEN '1991-10-01' AND '1991-10-31'
+  AND Laboratory.""T-BIL"" IS NOT NULL
+  AND Laboratory.""T-BIL"" < 2.0
+ORDER BY Patient.ID ASC;",True,challenging,0,,,6978,12.9,2,5329,0,1231,896,0.003794,0.175,6.545,6.153,0.006,0,calibration
+28,1195,thrombosis_prediction,What is the average blood albumin level for female patients with a PLT greater than 400 who have been diagnosed with SLE?,average blood albumin level refers to AVG(ALB); female refers to SEX = 'F'; PLT greater than 400 refers to PLT > 400; diagnosed with SLE refers to Diagnosis= 'SLE',SELECT AVG(T2.ALB) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.PLT > 400 AND T1.Diagnosis = 'SLE' AND T1.SEX = 'F',SELECT AVG(Laboratory.ALB) FROM Patient JOIN Laboratory ON Patient.ID = Laboratory.ID WHERE Patient.SEX = 'F' AND Laboratory.PLT > 400 AND Laboratory.ALB IS NOT NULL AND (Patient.Diagnosis = 'SLE' OR Patient.Diagnosis LIKE '%SLE%');,False,moderate,0,,,6978,16.1,2,5302,0,1125,832,0.003576,0.194,10.157,5.691,0.023,0,calibration
+29,1208,thrombosis_prediction,Provide IDs for male patients with ALT glutamic pylvic transaminase (GPT) that have history of ALT glutamic pylvic transaminase (GPT) exceed the normal range.,male refers to SEX = 'M'; ALT glutamic pylvic transaminase (GPT) exceed the normal range refers to GPT > = 60,SELECT DISTINCT T1.ID FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T1.SEX = 'M' AND T2.GPT >= 60,SELECT Patient.ID FROM Patient JOIN Laboratory ON Patient.ID = Laboratory.ID WHERE Patient.SEX = 'M' AND Laboratory.GPT IS NOT NULL AND Laboratory.GPT > 60 GROUP BY Patient.ID;,True,moderate,0,,,6978,11.6,2,5275,0,798,576,0.002915,0.185,8.317,3.126,0.009,0,calibration
+30,1209,thrombosis_prediction,Please provide the diagnosis of patients with ALT glutamic pylvic transaminase beyond the normal range by ascending order of their date of birth.,"ALT glutamic pylvic transaminase beyond the normal range refers to GPT > 60; The larger the birthday value, the younger the person is, and vice versa; ",SELECT DISTINCT T1.Diagnosis FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.GPT > 60 ORDER BY T1.Birthday ASC,"SELECT COALESCE(Examination.Diagnosis, Patient.Diagnosis)
+FROM Laboratory
+JOIN Patient ON Laboratory.ID = Patient.ID
+LEFT JOIN Examination ON Laboratory.ID = Examination.ID
+WHERE Laboratory.GPT > 60
+ORDER BY Patient.Birthday ASC;",False,moderate,0,,,6978,14.7,2,5285,0,1307,1024,0.003935,0.143,8.831,5.686,0.017,0,calibration
+31,1225,thrombosis_prediction,List and group all patients by sex for total bilirubin (T-BIL) level not within the normal range.,List refers to GROUP_CONCAT(DISTINCT ID); total bilirubin (T-BIL) not within normal range refers to T-BIL > = 2.0,"SELECT T1.ID,T1.SEX FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.`T-BIL` >= 2.0 GROUP BY T1.SEX,T1.ID","SELECT Patient.SEX, COUNT(DISTINCT Patient.ID) FROM Laboratory JOIN Patient ON Laboratory.ID = Patient.ID WHERE ""T-BIL"" >= 2.0 GROUP BY Patient.SEX ORDER BY COUNT(DISTINCT Patient.ID) DESC;",False,moderate,0,,,6978,22.8,2,5300,0,1846,1600,0.005017,0.141,13.427,9.245,0.014,0,calibration
+32,1229,thrombosis_prediction,"For all patients with triglyceride (TG) level beyond the normal range, how many are age more than 50 years?","triglyceride (TG) level beyond the normal range refers to TG > = 200; more than 50 years of age = SUBTRACT(year(current_timestamp), year(Birthday)) > 50; Should consider DISTINCT in the final result;","SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.TG >= 200 AND STRFTIME('%Y', CURRENT_TIMESTAMP) - STRFTIME('%Y', T1.Birthday) > 50","SELECT COUNT(DISTINCT Patient.ID)
+FROM Laboratory
+JOIN Patient ON Laboratory.ID = Patient.ID
+WHERE Laboratory.TG >= 200
+  AND Patient.Birthday IS NOT NULL
+  AND (
+    (CAST(strftime('%Y', Laboratory.Date) AS INTEGER) - CAST(strftime('%Y', Patient.Birthday) AS INTEGER)
+     - (strftime('%m-%d', Laboratory.Date) < strftime('%m-%d', Patient.Birthday))
+    ) > 50
+  );",False,moderate,0,,,6978,22.6,2,5265,0,1516,1216,0.004348,0.183,12.317,9.829,0.19,0,calibration
+33,1243,thrombosis_prediction,"For all patients who are older than 55 years old, what is the percentage of female who has abnormal prothrombin time (PT)?","older than 55 years old = SUBTRACT(year(current_timestamp), year(Birthday)) > 55; abnormal prothrombin time (PT) refers to PT > = 14; percentage = DIVIDE(SUM(PT > = 14 AND SEX = 'F'), SUM(PT > = 14)) * 100; female refers to sex = 'F'; ","SELECT CAST(SUM(CASE WHEN T2.PT >= 14 AND T1.SEX = 'F' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(CASE WHEN T2.PT >= 14 THEN 1 ELSE 0 END) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE STRFTIME('%Y', CURRENT_TIMESTAMP) - STRFTIME('%Y', T1.Birthday) > 55","WITH female_over55 AS (
+  SELECT DISTINCT p.ID
+  FROM Patient p
+  JOIN Laboratory l ON p.ID = l.ID
+  WHERE p.SEX = 'F'
+    AND (
+      (CAST(strftime('%Y', l.Date) AS INTEGER) - CAST(strftime('%Y', p.Birthday) AS INTEGER)
+       - (strftime('%m%d', l.Date) < strftime('%m%d', p.Birthday))
+      ) > 55
+    )
+),
+abnormal AS (
+  SELECT DISTINCT p.ID
+  FROM Patient p
+  JOIN Laboratory l ON p.ID = l.ID
+  WHERE p.SEX = 'F'
+    AND l.PT IS NOT NULL
+    AND l.PT >= 14
+    AND (
+      (CAST(strftime('%Y', l.Date) AS INTEGER) - CAST(strftime('%Y', p.Birthday) AS INTEGER)
+       - (strftime('%m%d', l.Date) < strftime('%m%d', p.Birthday))
+      ) > 55
+    )
+)
+SELECT CASE WHEN (SELECT COUNT(*) FROM female_over55) = 0 THEN 0.0
+            ELSE (CAST((SELECT COUNT(*) FROM abnormal) AS REAL) * 100.0 / (SELECT COUNT(*) FROM female_over55))
+       END AS percentage;",False,challenging,0,,,6978,33.7,2,5407,0,2458,1856,0.006268,0.218,14.84,18.549,0.021,0,calibration
+34,1257,thrombosis_prediction,"Among the patients whose creatinine level is abnormal, how many of them aren't 70 yet?","creatinine level is abnormal refers to CRE >= 1.5; aren't 70 yet refers to SUBTRACT((YEAR(CURDATE()), YEAR(Birthday))) < 70; ","SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.CRE >= 1.5 AND STRFTIME('%Y', Date('now')) - STRFTIME('%Y', T1.Birthday) < 70","SELECT COUNT(DISTINCT Patient.ID) FROM Laboratory JOIN Patient ON Laboratory.ID = Patient.ID WHERE Laboratory.CRE > 1.5 AND Patient.Birthday IS NOT NULL AND Laboratory.Date IS NOT NULL AND ((strftime('%Y', Laboratory.Date) - strftime('%Y', Patient.Birthday)) - (strftime('%m-%d', Laboratory.Date) < strftime('%m-%d', Patient.Birthday))) < 70;",False,challenging,0,,,6978,15.7,2,5300,0,1291,960,0.003907,0.149,9.074,6.442,0.012,0,calibration
+35,1265,thrombosis_prediction,How many patients have a normal level of anti-ribonuclear protein and have been admitted to the hospital?,"normal level of anti-ribonuclear protein refers to RNP = '-', '+-'; And'-' means 'negative'; '+-' refers to '0'; admitted to the hospital refers to Admission = '+'; Should consider DISTINCT in the final result;",SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.RNP = 'negative' OR T2.RNP = '0' AND T1.Admission = '+',"SELECT COUNT(DISTINCT Patient.ID) FROM Laboratory JOIN Patient ON Laboratory.ID = Patient.ID WHERE Patient.Admission = '+' AND (TRIM(Laboratory.RNP) = '0' OR lower(TRIM(Laboratory.RNP)) IN ('-','negative'));",False,moderate,0,,,6978,14.0,2,5288,0,1304,1024,0.00393,0.165,8.674,5.125,0.014,0,calibration
+36,1267,thrombosis_prediction,"Among the patients with normal anti-SM, how many of them does not have thrombosis?","normal anti-SM refers to SM IN('-', '+-'); SM = 'negative' means '-'; SM = '0' means '+-'; SM = '1' means '+'; does not have thrombosis refers to Thrombosis = 0;","SELECT COUNT(T1.ID) FROM Examination AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID WHERE T2.SM IN ('negative','0') AND T1.Thrombosis = 0",SELECT COUNT(DISTINCT Examination.ID) FROM Laboratory JOIN Examination ON Laboratory.ID = Examination.ID WHERE (Laboratory.SM = '0' OR Laboratory.SM = 'negative') AND Examination.Thrombosis = 0;,False,moderate,0,,,6978,15.2,2,5256,0,1142,896,0.003598,0.141,10.351,4.723,0.006,0,calibration
+37,1270,thrombosis_prediction,"Among the patients who has a normal anti-scl70, how many of them are female and does not have any symptom?","normal anti-scl70 refers to SC170 IN('negative', '0'); female refers to Sex = 'F'; does not have any symptom refers to symptoms IS NULL; Should consider DISTINCT in the final result;",SELECT COUNT(DISTINCT T1.ID) FROM Patient AS T1 INNER JOIN Laboratory AS T2 ON T1.ID = T2.ID INNER JOIN Examination AS T3 ON T3.ID = T2.ID WHERE (T2.SC170 = 'negative' OR T2.SC170 = '0') AND T1.SEX = 'F' AND T3.Symptoms IS NULL,"SELECT COUNT(DISTINCT Patient.ID)
+FROM Patient
+JOIN Laboratory ON Laboratory.ID = Patient.ID
+JOIN Examination ON Examination.ID = Patient.ID
+WHERE Patient.SEX = 'F'
+  AND TRIM(Laboratory.SC170) IN ('0','negative','-')
+  AND (Examination.Symptoms IS NULL OR TRIM(Examination.Symptoms) = '' OR TRIM(Examination.Symptoms) = '-');",True,challenging,0,,,6978,19.3,2,5331,0,1645,1280,0.004623,0.173,10.133,8.928,0.019,0,calibration
+38,1029,european_football_2,What are the speed in which attacks are put together of the top 4 teams with the highest build Up Play Speed?,speed in which attacks are put together refers to buildUpPlaySpeed;highest build up play speed refers to MAX(buildUpPlaySpeed),SELECT t1.buildUpPlaySpeed FROM Team_Attributes AS t1 INNER JOIN Team AS t2 ON t1.team_api_id = t2.team_api_id ORDER BY t1.buildUpPlaySpeed ASC LIMIT 4,"SELECT Team_Attributes.buildUpPlaySpeed
+FROM Team_Attributes
+JOIN Team ON Team_Attributes.team_api_id = Team.team_api_id
+WHERE (Team_Attributes.team_api_id, Team_Attributes.date) IN (
+  SELECT team_api_id, MAX(date) FROM Team_Attributes GROUP BY team_api_id
+)
+AND Team_Attributes.buildUpPlaySpeed IS NOT NULL
+ORDER BY Team_Attributes.buildUpPlaySpeed DESC
+LIMIT 4;",False,moderate,0,,,18657,15.2,2,13217,0,1545,1216,0.006394,0.171,10.097,4.884,0.009,0,calibration
+39,1035,european_football_2,Give the team_fifa_api_id of teams with more than 50 but less than 60 build-up play speed.,teams with more than 50 but less than 60 build-up play speed refers to buildUpPlaySpeed >50 AND buildUpPlaySpeed <60; ,SELECT DISTINCT team_fifa_api_id FROM Team_Attributes WHERE buildUpPlaySpeed > 50 AND buildUpPlaySpeed < 60,SELECT team_fifa_api_id FROM Team_Attributes WHERE buildUpPlaySpeed > 50 AND buildUpPlaySpeed < 60 GROUP BY team_fifa_api_id;,True,simple,0,,,18657,11.3,2,13144,0,1051,896,0.005388,0.155,6.409,4.77,0.008,0,calibration
+40,1037,european_football_2,"Calculate the percentage of players who prefer left foot, who were born between 1987 and 1992.","players who prefer left foot refers to preferred_foot = 'left'; percentage of players who prefer left foot = DIVIDE(MULTIPLY((SUM(preferred_foot = 'left'), 100)), COUNT(player_fifa_api_id)); born between 1987 and 1992 refers to YEAR(birthday) BETWEEN '1987' AND '1992';","SELECT CAST(COUNT(CASE WHEN t2.preferred_foot = 'left' THEN t1.id ELSE NULL END) AS REAL) * 100 / COUNT(t1.id) percent FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE SUBSTR(t1.birthday, 1, 4) BETWEEN '1987' AND '1992'","WITH latest AS (
+  SELECT player_api_id, preferred_foot
+  FROM (
+    SELECT player_api_id, preferred_foot,
+           ROW_NUMBER() OVER (PARTITION BY player_api_id ORDER BY date DESC) AS rn
+    FROM Player_Attributes
+  ) WHERE rn = 1
+)
+SELECT ROUND(100.0 * SUM(CASE WHEN latest.preferred_foot = 'left' THEN 1 ELSE 0 END) / COUNT(*), 2) AS percentage
+FROM Player
+JOIN latest ON Player.player_api_id = latest.player_api_id
+WHERE Player.birthday BETWEEN '1987-01-01' AND '1992-12-31';",False,challenging,0,,,18657,26.1,2,13275,0,2286,1856,0.007891,0.143,9.992,15.743,0.168,0,calibration
+41,1040,european_football_2,List the top 10 players' names whose heights are above 180 in descending order of average heading accuracy.,"heights are above 180 refers to Player.height > 180; average heading accuracy = DIVIDE(SUM(heading_accuracy), COUNT(player_fifa_api_id));",SELECT t1.player_name FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE t1.height > 180 GROUP BY t1.id ORDER BY CAST(SUM(t2.heading_accuracy) AS REAL) / COUNT(t2.`player_fifa_api_id`) DESC LIMIT 10,"SELECT Player.player_name
+FROM Player
+JOIN Player_Attributes ON Player.player_api_id = Player_Attributes.player_api_id
+WHERE Player.height > 180
+  AND Player_Attributes.heading_accuracy IS NOT NULL
+GROUP BY Player.player_api_id, Player.player_name
+ORDER BY AVG(Player_Attributes.heading_accuracy) DESC
+LIMIT 10;",True,moderate,0,,,18657,13.7,2,13190,0,1318,1088,0.005933,0.129,9.709,3.655,0.116,0,calibration
+42,1048,european_football_2,What is the overall rating of the football player Gabriel Tamas in year 2011?,"in year 2011 refers to strftime('%Y', date) = '2011';","SELECT t2.overall_rating FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE t1.player_name = 'Gabriel Tamas' AND strftime('%Y', t2.date) = '2011'","SELECT Player_Attributes.overall_rating
+FROM Player
+JOIN Player_Attributes ON Player.player_api_id = Player_Attributes.player_api_id
+WHERE Player.player_name = 'Gabriel Tamas'
+  AND Player_Attributes.date BETWEEN '2011-01-01' AND '2011-12-31'
+ORDER BY Player_Attributes.date DESC;",True,simple,0,,,18657,11.1,2,13193,0,1063,768,0.005424,0.145,5.775,5.02,0.089,0,calibration
+43,1058,european_football_2,Who has the highest average finishing rate between the highest and shortest football player?,finishing rate refers to finishing; highest average finishing rate = MAX(AVG(finishing)); highest football player refers to MAX(height); shortest football player refers to MIN(height);,"SELECT A FROM ( SELECT AVG(finishing) result, 'Max' A FROM Player AS T1 INNER JOIN Player_Attributes AS T2 ON T1.player_api_id = T2.player_api_id WHERE T1.height = ( SELECT MAX(height) FROM Player ) UNION SELECT AVG(finishing) result, 'Min' A FROM Player AS T1 INNER JOIN Player_Attributes AS T2 ON T1.player_api_id = T2.player_api_id WHERE T1.height = ( SELECT MIN(height) FROM Player ) ) ORDER BY result DESC LIMIT 1","WITH avgs AS (
+  SELECT p.player_api_id, p.player_name, AVG(pa.finishing) AS avg_finishing
+  FROM Player p
+  JOIN Player_Attributes pa ON p.player_api_id = pa.player_api_id
+  WHERE pa.finishing IS NOT NULL
+    AND (p.height = (SELECT MAX(height) FROM Player) OR p.height = (SELECT MIN(height) FROM Player))
+  GROUP BY p.player_api_id, p.player_name
+)
+SELECT player_name
+FROM avgs
+WHERE avg_finishing = (SELECT MAX(avg_finishing) FROM avgs)
+ORDER BY avg_finishing DESC;",False,challenging,0,,,18657,24.9,2,13175,0,2265,1920,0.007824,0.154,11.779,12.69,0.129,0,calibration
+44,1068,european_football_2,"From 2010 to 2015, what was the average overall rating of players who are higher than 170?","from 2010 to 2015 refers to strftime('%Y', date) >= '2010' AND <= '2015'; average overall rating = SUM(t2.overall_rating)/ COUNT(t2.id); higher than 170 refers to Player.height > 170;","SELECT CAST(SUM(t2.overall_rating) AS REAL) / COUNT(t2.id) FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE t1.height > 170 AND STRFTIME('%Y',t2.`date`) >= '2010' AND STRFTIME('%Y',t2.`date`) <= '2015'","SELECT AVG(Player_Attributes.overall_rating) FROM Player_Attributes JOIN Player ON Player_Attributes.player_api_id = Player.player_api_id WHERE substr(Player_Attributes.date,1,10) BETWEEN '2010-01-01' AND '2015-12-31' AND Player.height > 170 AND Player_Attributes.overall_rating IS NOT NULL;",False,moderate,0,,,18657,16.9,2,13212,0,1829,1536,0.006961,0.158,7.869,8.674,0.08,0,calibration
+45,1080,european_football_2,"Among the players whose preferred foot was the left foot when attacking, how many of them would remain in his position when the team attacked?",preferred foot when attacking was the left refers to preferred_foot = 'left'; players who would remain in his position when the team attacked refers to attacking_work_rate = 'low';,SELECT COUNT(player_api_id) FROM Player_Attributes WHERE preferred_foot = 'left' AND attacking_work_rate = 'low',SELECT COUNT(DISTINCT player_api_id) FROM Player_Attributes WHERE preferred_foot = 'left' AND defensive_work_rate = 'high';,False,moderate,0,,,18657,8.6,2,13169,0,765,576,0.004822,0.134,5.69,2.734,0.035,0,calibration
+46,1084,european_football_2,"Among the players born before the year 1986, how many of them would remain in his position and defense while the team attacked?","players born before the year 1986 refers to strftime('%Y', birthday)<'1986'; players who would remain in his position and defense while the team attacked refers to defensive_work_rate = 'high'; Should consider DISTINCT in the final result;","SELECT COUNT(DISTINCT t1.player_name) FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE STRFTIME('%Y',t1.birthday) < '1986' AND t2.defensive_work_rate = 'high'",SELECT COUNT(DISTINCT Player.player_api_id) FROM Player JOIN Player_Attributes ON Player.player_api_id = Player_Attributes.player_api_id WHERE Player.birthday < '1986-01-01' AND Player_Attributes.defensive_work_rate = 'high';,True,challenging,0,,,18657,12.4,2,13244,0,1006,704,0.005323,0.115,8.721,3.403,0.091,0,calibration
+47,1113,european_football_2,"For the team ""Hannover 96"", what was its defence aggression class on 2015/9/10?","""Hannover 96"" refers to team_long_name = 'Hannover 96'; on 2015/9/10 refers to date LIKE '2015-09-10%';",SELECT t2.defenceAggressionClass FROM Team AS t1 INNER JOIN Team_Attributes AS t2 ON t1.team_api_id = t2.team_api_id WHERE t1.team_long_name = 'Hannover 96' AND t2.`date` LIKE '2015-09-10%',"SELECT Team_Attributes.defenceAggressionClass
+FROM Team
+JOIN Team_Attributes ON Team.team_api_id = Team_Attributes.team_api_id
+WHERE Team.team_long_name = 'Hannover 96'
+  AND (Team_Attributes.date = '2015-09-10 00:00:00' OR Team_Attributes.date LIKE '2015-09-10%');",True,moderate,0,,,18657,14.6,2,13205,0,1058,768,0.005417,0.148,9.324,5.144,0.007,0,calibration
+48,1116,european_football_2,List down most tallest players' name.,tallest refers to rank based on the height in descending order; Most tallest players refers to rank = 1 ,"SELECT player_name FROM (SELECT player_name, height, DENSE_RANK() OVER (ORDER BY height DESC) as rank FROM Player) WHERE rank = 1",SELECT player_name FROM Player WHERE height IS NOT NULL AND height = (SELECT MAX(height) FROM Player WHERE height IS NOT NULL) ORDER BY player_name ASC;,True,simple,0,,,18657,8.9,2,13089,0,639,512,0.00455,0.141,6.092,2.584,0.047,0,calibration
+49,1124,european_football_2,Who are the players that tend to be attacking when their mates were doing attack moves? List down their name.,tend to be attacking when their mates were doing attack moves refers to attacking_work_rate = 'high';,SELECT DISTINCT t1.player_name FROM Player AS t1 INNER JOIN Player_Attributes AS t2 ON t1.player_api_id = t2.player_api_id WHERE t2.attacking_work_rate = 'high',"SELECT Player.player_name
+FROM Player
+JOIN Player_Attributes ON Player.player_api_id = Player_Attributes.player_api_id
+JOIN Team_Attributes ON Player_Attributes.date = Team_Attributes.date
+WHERE Player_Attributes.attacking_work_rate = 'high'
+  AND (
+    Team_Attributes.chanceCreationShootingClass = 'Lots'
+    OR Team_Attributes.buildUpPlayDribblingClass = 'Lots'
+    OR Team_Attributes.buildUpPlaySpeedClass = 'Fast'
+  )
+GROUP BY Player.player_name
+ORDER BY Player.player_name ASC;",False,moderate,0,,,18657,18.0,2,13345,0,1711,1216,0.006758,0.107,12.822,4.879,0.139,0,calibration
+50,1139,european_football_2,"What was the final score for the match on September 24, 2008, in the Belgian Jupiler League between the home team and the away team?","September 24, 2008 refers to date like '2008-09-24%'; in the Belgian Jupiler League refers to League.name = 'Belgium Jupiler League'; final score for home team refers to home_team_goal; final score for away team refers to away_team_goal","SELECT t2.home_team_goal, t2.away_team_goal FROM League AS t1 INNER JOIN Match AS t2 ON t1.id = t2.league_id WHERE t1.name = 'Belgium Jupiler League' AND t2.`date` LIKE '2008-09-24%'","SELECT Match.home_team_goal, Match.away_team_goal
+FROM Match
+JOIN League ON Match.league_id = League.id
+JOIN Team AS home ON Match.home_team_api_id = home.team_api_id
+JOIN Team AS away ON Match.away_team_api_id = away.team_api_id
+WHERE League.name = 'Belgium Jupiler League'
+  AND Match.date LIKE '2008-09-24%';",True,challenging,0,,,18657,19.7,2,13241,0,1545,1216,0.0064,0.137,10.894,7.48,1.112,0,calibration
+51,1144,european_football_2,Please state the finishing rate and curve score of the player who has the heaviest weight.,finishing rate refer to finishing; curve score refer to curve; heaviest weight refers to MAX(weight),"SELECT id, finishing, curve FROM Player_Attributes WHERE player_api_id = ( SELECT player_api_id FROM Player ORDER BY weight DESC LIMIT 1 ) LIMIT 1","SELECT pa.finishing, pa.curve
+FROM Player p
+JOIN Player_Attributes pa ON p.player_api_id = pa.player_api_id
+WHERE pa.date = (
+  SELECT MAX(pa2.date) FROM Player_Attributes pa2 WHERE pa2.player_api_id = pa.player_api_id
+)
+AND pa.finishing IS NOT NULL
+AND pa.curve IS NOT NULL
+AND p.weight IS NOT NULL
+AND p.weight = (SELECT MAX(weight) FROM Player WHERE weight IS NOT NULL)
+ORDER BY p.weight DESC;",False,simple,0,,,18657,2543.4,2,13211,0,1692,1344,0.006687,0.188,11.174,6.642,2525.307,0,calibration
+52,1146,european_football_2,Please provide the full name of the away team that scored the most goals.,full name refers to team_long_name; away team refers to away_team_api_id; scored the most goals refers to MAX(away_team_goal),SELECT t2.team_long_name FROM Match AS t1 INNER JOIN Team AS t2 ON t1.away_team_api_id = t2.team_api_id ORDER BY t1.away_team_goal DESC LIMIT 1,"SELECT Team.team_long_name
+FROM Match
+JOIN Team ON Match.away_team_api_id = Team.team_api_id
+WHERE Match.away_team_goal IS NOT NULL
+ORDER BY Match.away_team_goal DESC
+LIMIT 1;",True,moderate,0,,,18657,14.2,2,13173,0,1039,832,0.005371,0.388,9.814,3.476,0.481,0,calibration
+53,857,formula_1,Give the coordinate position for Abu Dhabi Grand Prix.,"coordinate position/location refers to lat, lng; Abu Dhabi Grand Prix refers to races.name = 'Abu Dhabi Grand Prix'","SELECT DISTINCT T1.lat, T1.lng FROM circuits AS T1 INNER JOIN races AS T2 ON T2.circuitID = T1.circuitId WHERE T2.name = 'Abu Dhabi Grand Prix'","SELECT lat, lng FROM circuits WHERE lower(name) LIKE '%abu dhabi%' OR lower(name) LIKE '%yas marina%' OR lower(location) LIKE '%abu dhabi%' OR lower(country) IN ('united arab emirates','uae');",True,simple,0,,,6044,13.5,2,4116,0,1096,896,0.003221,0.148,8.768,4.55,0.009,0,calibration
+54,865,formula_1,"For all the drivers who finished the game in race No. 592, who is the oldest?","drivers who finished the race refers to time is not empty (i.e. time IS NOT NULL); race number refers to raceId; date of birth refers to drivers.dob; The larger the birthday value, the younger the person is, and vice versa;","SELECT T1.forename, T1.surname FROM drivers AS T1 INNER JOIN results AS T2 ON T2.driverId = T1.driverId WHERE T2.raceId = 592 AND T2.time IS NOT NULL AND T1.dob IS NOT NULL ORDER BY T1.dob ASC LIMIT 1","SELECT drivers.forename, drivers.surname
+FROM results
+JOIN drivers ON results.driverId = drivers.driverId
+WHERE results.raceId = 592
+  AND results.time IS NOT NULL
+ORDER BY drivers.dob ASC
+LIMIT 1;",True,moderate,1,SCHEMA_ERROR,,8027,32.8,4,8949,1536,2696,2176,0.007284,0.304,16.076,16.395,0.024,0.0,calibration
+55,869,formula_1,"For the constructor which got the highest point in the race No. 9 , what is its introduction website?",race number refers to raceId; constructor which got the highest point refers to MAX(constructorResults.points); introduction website of the constructor refers to url;,SELECT T2.url FROM constructorResults AS T1 INNER JOIN constructors AS T2 ON T2.constructorId = T1.constructorId WHERE T1.raceId = 9 ORDER BY T1.points DESC LIMIT 1,"SELECT constructors.url
+FROM constructorStandings
+JOIN constructors ON constructorStandings.constructorId = constructors.constructorId
+WHERE constructorStandings.raceId = 9
+  AND constructorStandings.points = (
+    SELECT MAX(points) FROM constructorStandings WHERE raceId = 9
+  );",False,moderate,0,,,4690,13.5,2,3235,0,1147,960,0.003103,0.166,9.13,4.215,0.003,0,calibration
+56,872,formula_1,"In the race No. 45, for the driver who had the Q3 time as 0:01:33, what is his abbreviated code?",race number refers to raceId; had the Q3 time as 0:0M:SS refers to q3 LIKE 'M:SS%',SELECT T2.code FROM qualifying AS T1 INNER JOIN drivers AS T2 ON T2.driverId = T1.driverId WHERE T1.raceId = 45 AND T1.q3 LIKE '1:33%',"SELECT drivers.code
+FROM qualifying
+JOIN drivers ON qualifying.driverId = drivers.driverId
+JOIN races ON qualifying.raceId = races.raceId
+WHERE qualifying.raceId = 45
+  AND qualifying.q3 = '0:01:33';",False,simple,0,,,5747,15.6,2,4152,0,1288,960,0.003614,0.146,11.253,4.228,0.004,0,calibration
+57,875,formula_1,Show me the season page of year when the race No. 901 took place.,the season page refers to url; race number refers to raceId;,SELECT T2.url FROM races AS T1 INNER JOIN seasons AS T2 ON T2.year = T1.year WHERE T1.raceId = 901,SELECT seasons.url FROM races JOIN seasons ON races.year = seasons.year WHERE races.raceId = 901;,True,simple,0,,,5537,7.2,2,3845,0,481,320,0.001923,0.13,5.009,2.035,0.006,0,calibration
+58,879,formula_1,"For the driver who set the fastest lap speed, what is his nationality?",the fastest lap speed refers to (MAX) fastestLapSpeed;,SELECT T1.nationality FROM drivers AS T1 INNER JOIN results AS T2 ON T2.driverId = T1.driverId ORDER BY T2.fastestLapSpeed DESC LIMIT 1,"SELECT drivers.nationality
+FROM results
+JOIN drivers ON results.driverId = drivers.driverId
+WHERE results.fastestLapSpeed IS NOT NULL
+  AND results.fastestLapSpeed <> ''
+ORDER BY CAST(results.fastestLapSpeed AS REAL) DESC
+LIMIT 1;",False,moderate,0,,,5879,10.0,2,4091,0,898,640,0.002819,0.139,7.12,2.748,0.008,0,calibration
+59,892,formula_1,State the driver with the most points scored. Find his full name with that points.,the most points scored refers to max(points); Full name of the driver refers to drivers.forename and drivers.surname;,"SELECT T3.forename, T3.surname, T2.points FROM races AS T1 INNER JOIN driverStandings AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId ORDER BY T2.points DESC LIMIT 1","SELECT drivers.forename || ' ' || drivers.surname AS full_name, SUM(driverStandings.points) AS total_points
+FROM driverStandings
+JOIN drivers ON driverStandings.driverId = drivers.driverId
+GROUP BY drivers.driverId, drivers.forename, drivers.surname
+ORDER BY total_points DESC
+LIMIT 1;",False,moderate,0,,,5355,16.3,2,3748,0,1356,1152,0.003649,0.133,9.383,6.752,0.017,0,calibration
+60,896,formula_1,Calculate the percentage whereby Hamilton was not at the 1st track of the the f1 circuit since 2010.,"percentage = DIVIDE(COUNT(raceId) where surname = 'Hamilton' and position>1), (COUNT(raceId) where surname = 'Hamilton'); since 2010 refers to year >= 2010",SELECT CAST(COUNT(CASE WHEN T2.position <> 1 THEN T2.position END) AS REAL) * 100 / COUNT(T2.driverStandingsId) FROM races AS T1 INNER JOIN driverStandings AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T3.surname = 'Hamilton' AND T1.year >= 2010,"SELECT 100.0 * SUM(CASE WHEN results.position IS NULL OR results.position != 1 THEN 1 ELSE 0 END) / COUNT(*) AS percentage_not_1
+FROM results
+JOIN races ON results.raceId = races.raceId
+WHERE results.driverId = 1
+  AND races.year >= 2010;",False,challenging,0,,,5537,17.0,2,3939,0,1576,1280,0.004137,0.161,9.75,7.086,0.006,0,calibration
+61,897,formula_1,Name the driver with the most winning. Mention his nationality and what is his maximum point scores.,Full name of the driver refers to drivers.forename and drivers.surname; the most winning refers to MAX(COUNT(wins)); average point scores refers to MAX(points);,"SELECT T1.forename, T1.surname, T1.nationality, MAX(T2.points) FROM drivers AS T1 INNER JOIN driverStandings AS T2 ON T2.driverId = T1.driverId WHERE T2.wins >= 1 GROUP BY T1.forename, T1.surname, T1.nationality ORDER BY COUNT(T2.wins) DESC LIMIT 1","SELECT drivers.forename || ' ' || drivers.surname AS name, drivers.nationality, MAX(driverStandings.points) AS max_points
+FROM driverStandings
+JOIN drivers ON driverStandings.driverId = drivers.driverId
+GROUP BY driverStandings.driverId, drivers.forename, drivers.surname, drivers.nationality
+ORDER BY SUM(driverStandings.wins) DESC, MAX(driverStandings.points) DESC
+LIMIT 1;",False,moderate,0,,,5145,18.6,2,3681,0,2108,1728,0.005136,0.121,11.25,7.158,0.018,0,calibration
+62,904,formula_1,State the race and year of race in which Michael Schumacher had his fastest lap.,fastest lap refers to min(milliseconds); Alex Yoong refers to the full name of the driver; Full name of the driver refers to drivers.forename and drivers.surname;,"SELECT T1.name, T1.year FROM races AS T1 INNER JOIN lapTimes AS T2 ON T2.raceId = T1.raceId INNER JOIN drivers AS T3 ON T3.driverId = T2.driverId WHERE T3.forename = 'Michael' AND T3.surname = 'Schumacher' ORDER BY T2.milliseconds ASC LIMIT 1","SELECT races.name, races.year
+FROM drivers
+JOIN lapTimes ON drivers.driverId = lapTimes.driverId
+JOIN races ON lapTimes.raceId = races.raceId
+WHERE drivers.forename = 'Michael'
+  AND drivers.surname = 'Schumacher'
+  AND lapTimes.milliseconds IS NOT NULL
+  AND lapTimes.milliseconds = (
+    SELECT MIN(milliseconds) FROM lapTimes
+    WHERE driverId = drivers.driverId AND milliseconds IS NOT NULL
+  );",True,moderate,1,SCHEMA_ERROR,,8027,195.0,4,9389,3456,3627,2944,0.008824,0.363,36.62,18.09,139.815,0.0,calibration
+63,912,formula_1,What's the reference name of Marina Bay Street Circuit?,reference name refers to circuitRef; Marina Bay Street Circuit refers to circuits.name = 'Marina Bay Street Circuit',SELECT circuitRef FROM circuits WHERE name = 'Marina Bay Street Circuit',SELECT circuitRef FROM circuits WHERE name = 'Marina Bay Street Circuit';,True,simple,0,,,3777,6.5,2,2699,0,371,256,0.001417,0.139,4.064,2.325,0.004,0,calibration
+64,944,formula_1,How much faster in percentage is the champion than the driver who finished the race last in the 2008 Australian Grand Prix?,"how much faster in percentage = divide(subtract(incremental time, champion time), last_driver time) * 100; last driver finished time = incremental time + champion time; only champion's finished time is represented by 'HH:MM:SS.mmm'; finished the game refers to time is not null","WITH time_in_seconds AS ( SELECT T1.positionOrder, CASE WHEN T1.positionOrder = 1 THEN (CAST(SUBSTR(T1.time, 1, 1) AS REAL) * 3600) + (CAST(SUBSTR(T1.time, 3, 2) AS REAL) * 60) + CAST(SUBSTR(T1.time, 6) AS REAL) ELSE CAST(SUBSTR(T1.time, 2) AS REAL) END AS time_seconds FROM results AS T1 INNER JOIN races AS T2 ON T1.raceId = T2.raceId WHERE T2.name = 'Australian Grand Prix' AND T1.time IS NOT NULL AND T2.year = 2008 ), champion_time AS ( SELECT time_seconds FROM time_in_seconds WHERE positionOrder = 1), last_driver_incremental AS ( SELECT time_seconds FROM time_in_seconds WHERE positionOrder = (SELECT MAX(positionOrder) FROM time_in_seconds) ) SELECT (CAST((SELECT time_seconds FROM last_driver_incremental) AS REAL) * 100) / (SELECT time_seconds + (SELECT time_seconds FROM last_driver_incremental) FROM champion_time)","WITH race AS (SELECT raceId FROM races WHERE year = 2008 AND name = 'Australian Grand Prix')
+SELECT ((last_ms - winner_ms) * 100.0 / last_ms)
+FROM (
+  SELECT
+    (SELECT milliseconds FROM results WHERE raceId = (SELECT raceId FROM race) AND positionOrder = 1 AND milliseconds IS NOT NULL) AS winner_ms,
+    (SELECT milliseconds FROM results WHERE raceId = (SELECT raceId FROM race) AND milliseconds IS NOT NULL ORDER BY positionOrder DESC LIMIT 1) AS last_ms
+);",True,challenging,0,,,5278,34.7,2,3773,0,2283,1920,0.005509,0.15,18.953,15.554,0.007,0,calibration
+65,945,formula_1,"How many circuits are there in Adelaide, Australia?",Australia is the country; Melbourne is the location of circuit;,SELECT COUNT(circuitId) FROM circuits WHERE location = 'Adelaide' AND country = 'Australia',"SELECT CASE
+  WHEN EXISTS(SELECT 1 FROM circuits WHERE country = 'Australia' AND location = 'Adelaide')
+  THEN (SELECT COUNT(DISTINCT circuitId) FROM circuits WHERE country = 'Australia' AND location = 'Adelaide')
+  ELSE (SELECT COUNT(DISTINCT circuitId) FROM circuits WHERE country = 'Australia' AND (name LIKE '%Adelaide%' COLLATE NOCASE OR circuitRef LIKE '%Adelaide%' COLLATE NOCASE))
+END;",True,simple,0,,,5430,13.6,2,3776,0,1341,1088,0.003626,0.155,5.678,7.766,0.002,0,calibration
+66,950,formula_1,Please list the constructor names with 0 points at race 291.,race at 291 refers to raceID = 291;,SELECT T2.name FROM constructorStandings AS T1 INNER JOIN constructors AS T2 on T1.constructorId = T2.constructorId WHERE T1.points = 0 AND T1.raceId = 291,"SELECT constructors.name
+FROM constructors
+JOIN constructorResults ON constructors.constructorId = constructorResults.constructorId
+WHERE constructorResults.raceId = 291 AND constructorResults.points = 0
+GROUP BY constructors.name
+ORDER BY constructors.name ASC;",False,simple,0,,,4690,12.9,2,3244,0,1158,960,0.003127,0.17,9.148,3.59,0.004,0,calibration
+67,954,formula_1,Please calculate the race completion percentage of Japanese drivers from 2007 to 2009.,"from 2007 to 2009 refers to year between 2007 and 2009; race completion refers to time is not null; percentage = Divide(COUNT(DriverID where time is not null and year between 2007 and 2009),Count (DriverID where year between 2007 and 2009))*100; ","SELECT CAST(SUM(IIF(T1.time IS NOT NULL, 1, 0)) AS REAL) * 100 / COUNT(T1.raceId) FROM results AS T1 INNER JOIN races AS T2 on T1.raceId = T2.raceId INNER JOIN drivers AS T3 on T1.driverId = T3.driverId WHERE T3.nationality = 'Japanese' AND T2.year BETWEEN 2007 AND 2009","SELECT races.year,
+       100.0 * SUM(CASE WHEN results.time IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*) AS completion_percentage
+FROM results
+JOIN races ON results.raceId = races.raceId
+JOIN drivers ON results.driverId = drivers.driverId
+WHERE drivers.nationality = 'Japanese'
+  AND races.year BETWEEN 2007 AND 2009
+GROUP BY races.year
+ORDER BY races.year ASC;",False,challenging,0,,,5537,19.7,2,3959,0,1719,1344,0.004428,0.169,11.253,8.267,0.006,0,calibration
+68,959,formula_1,What is the fastest lap number of the champion in 2009?,"in 2009 refers to year = 2009; Only the time of the champion shows in the format of ""hour: minutes: seconds.millionsecond""",SELECT T1.fastestLap FROM results AS T1 INNER JOIN races AS T2 on T1.raceId = T2.raceId WHERE T2.year = 2009 AND T1.time LIKE '_:%:__.___',"SELECT results.fastestLap
+FROM results
+JOIN races ON results.raceId = races.raceId
+WHERE races.year = 2009
+  AND results.driverId = (
+    SELECT ds.driverId
+    FROM driverStandings ds
+    JOIN races r ON ds.raceId = r.raceId
+    WHERE r.year = 2009
+      AND ds.position = 1
+      AND r.round = (SELECT MAX(round) FROM races WHERE year = 2009)
+    LIMIT 1
+  )
+  AND results.fastestLapTime IS NOT NULL
+  AND results.fastestLap IS NOT NULL
+ORDER BY (
+  CAST(substr(results.fastestLapTime, 1, instr(results.fastestLapTime, ':')-1) AS INTEGER) * 60000.0
+  + CAST(substr(results.fastestLapTime, instr(results.fastestLapTime, ':')+1) AS REAL) * 1000.0
+) ASC
+LIMIT 1;",False,simple,1,SCHEMA_ERROR,,8027,59.1,4,9460,1664,5797,4800,0.013585,0.336,37.797,20.993,0.007,0.0,calibration
+69,960,formula_1,What is the average of fastest lap speed in the 2009 Spanish Grand Prix race?,Spanish Grand Prix is the name of race refers to name = 'Spanish Grand Prix'; average fastest lap speed refers to avg(fastestLapSpeed);,SELECT AVG(T1.fastestLapSpeed) FROM results AS T1 INNER JOIN races AS T2 on T1.raceId = T2.raceId WHERE T2.year = 2009 AND T2.name = 'Spanish Grand Prix',SELECT AVG(CAST(results.fastestLapSpeed AS REAL)) FROM results JOIN races ON results.raceId = races.raceId WHERE races.year = 2009 AND races.name = 'Spanish Grand Prix' AND results.fastestLapSpeed IS NOT NULL AND results.fastestLapSpeed <> '' AND CAST(results.fastestLapSpeed AS REAL) IS NOT NULL;,True,moderate,0,,,5430,10.3,2,3834,0,966,704,0.00289,0.152,5.746,4.382,0.006,0,calibration
+70,964,formula_1,List out the code for drivers who have nationality in American.,nationality = 'American',SELECT code FROM drivers WHERE Nationality = 'American',SELECT code FROM drivers WHERE nationality = 'American';,True,simple,0,,,4711,8.7,2,3386,0,641,512,0.002128,0.197,5.517,3.0,0.003,0,calibration
+71,981,formula_1,"On what year did the youngest driver had his first qualifying race? Also state the name, date and time of the race.","date of birth refers to drivers.dob; The larger the birthday value, the younger the person is, and vice versa; first qualifying race refers to MIN(races.date);","SELECT T3.year, T3.name, T3.date, T3.time FROM qualifying AS T1 INNER JOIN drivers AS T2 on T1.driverId = T2.driverId INNER JOIN races AS T3 on T1.raceId = T3.raceId WHERE T1.driverId = ( SELECT driverId FROM drivers ORDER BY dob DESC LIMIT 1 ) ORDER BY T3.date ASC LIMIT 1","WITH youngest AS (
+  SELECT driverId
+  FROM drivers
+  WHERE dob = (SELECT MAX(dob) FROM drivers)
+  LIMIT 1
+)
+SELECT races.year, races.name, races.date, races.time
+FROM qualifying
+JOIN youngest ON qualifying.driverId = youngest.driverId
+JOIN races ON qualifying.raceId = races.raceId
+ORDER BY races.date ASC, COALESCE(races.time, '00:00:00') ASC
+LIMIT 1;",True,moderate,1,SCHEMA_ERROR,,8027,51.3,4,9530,3584,4037,3136,0.00965,0.284,25.001,26.013,0.009,0.0,calibration
+72,990,formula_1,What is the constructor reference name of the champion in the 2009 Singapore Grand Prix? Please give its website.,"the time of the champion shows in the format of ""minutes: seconds.millionsecond"" in which Max(time); constructor reference name refers to constructorRef; website refers to url","SELECT T3.constructorRef, T3.url FROM results AS T1 INNER JOIN races AS T2 on T1.raceId = T2.raceId INNER JOIN constructors AS T3 on T1.constructorId = T3.constructorId WHERE T2.name = 'Singapore Grand Prix' AND T2.year = 2009 AND T1.time LIKE '_:%:__.___'","SELECT constructors.constructorRef, constructors.url
+FROM results
+JOIN races ON results.raceId = races.raceId
+JOIN constructors ON results.constructorId = constructors.constructorId
+WHERE races.year = 2009
+  AND races.name LIKE '%Singapore%'
+  AND results.position = 1;",True,challenging,0,,,5507,10.9,2,3768,0,1058,832,0.003058,0.151,7.02,3.675,0.008,0,calibration
+73,723,superhero,"Among the superheroes with blue eyes, how many of them have the super power of ""Agility""?","blue eyes refers to colour = 'Blue' and eye_colour_id = colour.id; super power of ""Agility"" refers to power_name = 'Agility'",SELECT COUNT(T1.id) FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN superpower AS T3 ON T2.power_id = T3.id INNER JOIN colour AS T4 ON T1.eye_colour_id = T4.id WHERE T3.power_name = 'Agility' AND T4.colour = 'Blue',SELECT COUNT(DISTINCT superhero.id) FROM superhero JOIN colour ON superhero.eye_colour_id = colour.id JOIN hero_power ON superhero.id = hero_power.hero_id JOIN superpower ON hero_power.power_id = superpower.id WHERE LOWER(colour.colour) = 'blue' AND LOWER(superpower.power_name) = 'agility';,True,moderate,1,SCHEMA_ERROR,,3817,29.4,4,4926,0,2556,1920,0.006344,0.31,17.38,11.697,0.008,0.0,calibration
+74,726,superhero,Rank heroes published by Marvel Comics by their height in descending order.,name refers to superhero_name; the tallest hero refers to MAX(height_cm); published by Marvel Comics refers to publisher_name = 'Marvel Comics',"SELECT superhero_name, height_cm, RANK() OVER (ORDER BY height_cm DESC) AS HeightRank FROM superhero INNER JOIN publisher ON superhero.publisher_id = publisher.id WHERE publisher.publisher_name = 'Marvel Comics'","SELECT superhero.superhero_name, superhero.height_cm
+FROM superhero
+JOIN publisher ON superhero.publisher_id = publisher.id
+WHERE publisher.publisher_name = 'Marvel Comics'
+  AND superhero.height_cm IS NOT NULL
+  AND superhero.height_cm <> 0
+ORDER BY superhero.height_cm DESC, superhero.superhero_name ASC;",False,moderate,1,SCHEMA_ERROR,,3817,21.9,4,4819,0,2132,1600,0.005469,0.311,13.632,7.904,0.006,0.0,calibration
+75,730,superhero,List the superheroes from Marvel Comics who have the super power of 'Super Strength'.,"the superheroes from Marvel Comics refers to publisher_name = 'Marvel Comics'; super power of ""Super Strength"" refers to power_name = 'Super Strength';",SELECT superhero_name FROM superhero AS T1 WHERE EXISTS (SELECT 1 FROM hero_power AS T2 INNER JOIN superpower AS T3 ON T2.power_id = T3.id WHERE T3.power_name = 'Super Strength' AND T1.id = T2.hero_id)AND EXISTS (SELECT 1 FROM publisher AS T4 WHERE T4.publisher_name = 'Marvel Comics' AND T1.publisher_id = T4.id),"SELECT superhero.superhero_name
+FROM superhero
+JOIN hero_power ON hero_power.hero_id = superhero.id
+JOIN superpower ON hero_power.power_id = superpower.id
+JOIN publisher ON superhero.publisher_id = publisher.id
+WHERE lower(superpower.power_name) = 'super strength'
+  AND lower(publisher.publisher_name) = 'marvel comics'
+ORDER BY superhero.superhero_name ASC;",True,challenging,0,,,2825,19.5,2,2174,0,1645,1344,0.003834,0.138,9.565,9.721,0.006,0,calibration
+76,736,superhero,Who is the dumbest superhero?,the dumbest superhero refers to MIN(attribute_value) where attribute_name = 'Intelligence',SELECT T1.superhero_name FROM superhero AS T1 INNER JOIN hero_attribute AS T2 ON T1.id = T2.hero_id INNER JOIN attribute AS T3 ON T2.attribute_id = T3.id WHERE T3.attribute_name = 'Intelligence' ORDER BY T2.attribute_value LIMIT 1,"SELECT superhero.superhero_name
+FROM superhero
+JOIN hero_attribute ON hero_attribute.hero_id = superhero.id
+JOIN attribute ON hero_attribute.attribute_id = attribute.id
+WHERE attribute.attribute_name = 'Intelligence'
+  AND hero_attribute.attribute_value IS NOT NULL
+  AND hero_attribute.attribute_value = (
+    SELECT MIN(ha.attribute_value)
+    FROM hero_attribute ha
+    JOIN attribute a ON ha.attribute_id = a.id
+    WHERE a.attribute_name = 'Intelligence'
+      AND ha.attribute_value IS NOT NULL
+  )
+ORDER BY hero_attribute.attribute_value ASC;",False,moderate,1,SCHEMA_ERROR,,3817,31.2,4,4759,0,3002,2304,0.007194,0.295,18.26,12.643,0.009,0.0,calibration
+77,743,superhero,What is the percentage of superheroes who act in their own self-interest or make decisions based on their own moral code? Indicate how many of the said superheroes were published by Marvel Comics.,"published by Marvel Comics refers to publisher_name = 'Marvel Comics'; superheroes who act in their own self-interest or make decisions based on their own moral code refers to alignment = 'Bad'; calculation = MULTIPLY(DIVIDE(SUM(alignment = 'Bad); count(id)), 100)","SELECT (CAST(COUNT(*) AS REAL) * 100 / (SELECT COUNT(*) FROM superhero)), CAST(SUM(CASE WHEN T2.publisher_name = 'Marvel Comics' THEN 1 ELSE 0 END) AS REAL) FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id INNER JOIN alignment AS T3 ON T3.id = T1.alignment_id WHERE T3.alignment = 'Bad'","SELECT
+ROUND(100.0 * SUM(CASE WHEN superhero.alignment_id IS NOT NULL AND alignment.alignment IN ('Neutral','Antihero','Independent') THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN superhero.alignment_id IS NOT NULL THEN 1 ELSE 0 END),0),2) AS percentage,
+SUM(CASE WHEN superhero.alignment_id IS NOT NULL AND alignment.alignment IN ('Neutral','Antihero','Independent') AND superhero.publisher_id = 13 THEN 1 ELSE 0 END) AS marvel_count
+FROM superhero
+LEFT JOIN alignment ON superhero.alignment_id = alignment.id;",False,challenging,0,,,2893,42.3,2,2255,0,3540,3200,0.007644,0.178,20.18,21.884,0.006,0,calibration
+78,750,superhero,What is the average weight of all female superheroes?,female refers to gender = 'Female'; average weight refers to AVG(weight_kg),SELECT AVG(T1.weight_kg) FROM superhero AS T1 INNER JOIN gender AS T2 ON T1.gender_id = T2.id WHERE T2.gender = 'Female',SELECT AVG(superhero.weight_kg) FROM superhero JOIN gender ON superhero.gender_id = gender.id WHERE gender.gender = 'Female' AND superhero.weight_kg IS NOT NULL AND superhero.weight_kg != 0;,False,simple,0,,,2875,11.6,2,2114,0,1040,832,0.002609,0.149,7.253,4.139,0.001,0,calibration
+79,751,superhero,List down at least five superpowers of male superheroes.,male refers to gender = 'Male'; superpowers refers to power_name;,SELECT T3.power_name FROM superhero AS T1 INNER JOIN hero_power AS T2 ON T1.id = T2.hero_id INNER JOIN superpower AS T3 ON T3.id = T2.power_id INNER JOIN gender AS T4 ON T4.id = T1.gender_id WHERE T4.gender = 'Male' LIMIT 5,"SELECT superpower.power_name
+FROM superhero
+JOIN gender ON superhero.gender_id = gender.id
+JOIN hero_power ON hero_power.hero_id = superhero.id
+JOIN superpower ON hero_power.power_id = superpower.id
+WHERE gender.gender = 'Male'
+  AND superpower.power_name IS NOT NULL
+GROUP BY superpower.power_name
+ORDER BY superpower.power_name ASC
+LIMIT 5;",False,moderate,0,,,2825,19.1,2,2173,0,1372,1024,0.003287,0.15,11.556,7.399,0.006,0,calibration
+80,758,superhero,Provide the hair colour of the human superhero who is 185 cm tall.,185 cm tall refers to height_cm = 185; human superhero refers to race = 'human'; hair colour refers to colour where hair_colour_id = colour.id;,SELECT DISTINCT T3.colour FROM superhero AS T1 INNER JOIN race AS T2 ON T1.race_id = T2.id INNER JOIN colour AS T3 ON T1.hair_colour_id = T3.id WHERE T1.height_cm = 185 AND T2.race = 'Human',"SELECT colour.colour
+FROM superhero
+JOIN colour ON superhero.hair_colour_id = colour.id
+JOIN race ON superhero.race_id = race.id
+WHERE race.race = 'Human'
+  AND superhero.height_cm = 185
+  AND superhero.hair_colour_id IS NOT NULL;",False,moderate,0,,,2688,10.7,2,2072,0,774,512,0.002066,0.205,6.508,3.977,0.003,0,calibration
+81,761,superhero,"Among the male superheroes, list the super hero names of superheroes with weight greater than the 79% average weight of all superheroes.","super hero names refers to superhero_name;male superheros refers to gender = 'Male';Calculation = weight_kg > MULTIPLY(AVG(weight_kg), 0.79)",SELECT T1.superhero_name FROM superhero AS T1 INNER JOIN gender AS T2 ON T1.gender_id = T2.id WHERE T2.gender = 'Male' AND T1.weight_kg * 100 > ( SELECT AVG(weight_kg) FROM superhero ) * 79,"SELECT s.superhero_name
+FROM superhero s
+JOIN gender g ON s.gender_id = g.id
+WHERE g.gender = 'Male'
+  AND s.weight_kg IS NOT NULL AND s.weight_kg <> 0
+  AND s.weight_kg > 0.79 * (
+    SELECT AVG(weight_kg) FROM superhero WHERE weight_kg IS NOT NULL AND weight_kg <> 0
+  )
+ORDER BY s.superhero_name ASC;",True,moderate,0,,,2875,12.5,2,2217,0,1227,896,0.003008,0.163,8.056,4.309,0.002,0,calibration
+82,765,superhero,How many heroes have stealth power?,stealth power refers to power_name = 'Stealth';,SELECT COUNT(T1.hero_id) FROM hero_power AS T1 INNER JOIN superpower AS T2 ON T1.power_id = T2.id WHERE T2.power_name = 'Stealth',SELECT COUNT(DISTINCT hero_power.hero_id) FROM hero_power JOIN superpower ON hero_power.power_id = superpower.id WHERE superpower.power_name = 'Stealth';,True,simple,0,,,1615,10.4,2,1394,0,835,640,0.002018,0.155,7.357,2.884,0.002,0,calibration
+83,769,superhero,Which superhero has the most durability published by Dark Horse Comics?,which superhero refers to superhero_name; most durability refers to MAX(attribute_value) WHERE attribute_name = 'durability'; published by Dark Horse Comics refers to publisher_name = 'Dark Horse Comics';,SELECT T1.superhero_name FROM superhero AS T1 INNER JOIN hero_attribute AS T2 ON T1.id = T2.hero_id INNER JOIN attribute AS T3 ON T3.id = T2.attribute_id INNER JOIN publisher AS T4 ON T4.id = T1.publisher_id WHERE T4.publisher_name = 'Dark Horse Comics' AND T3.attribute_name = 'Durability' ORDER BY T2.attribute_value DESC LIMIT 1,"SELECT s.superhero_name
+FROM superhero s
+JOIN hero_attribute ha ON ha.hero_id = s.id
+JOIN attribute a ON ha.attribute_id = a.id
+JOIN publisher p ON s.publisher_id = p.id
+WHERE lower(a.attribute_name) = 'durability'
+  AND lower(p.publisher_name) = 'dark horse comics'
+  AND ha.attribute_value IS NOT NULL
+  AND ha.attribute_value = (
+    SELECT MAX(ha2.attribute_value)
+    FROM hero_attribute ha2
+    JOIN attribute a2 ON ha2.attribute_id = a2.id
+    JOIN superhero s2 ON ha2.hero_id = s2.id
+    JOIN publisher p2 ON s2.publisher_id = p2.id
+    WHERE lower(a2.attribute_name) = 'durability'
+      AND lower(p2.publisher_name) = 'dark horse comics'
+      AND ha2.attribute_value IS NOT NULL
+);",True,challenging,0,,,2815,25.0,2,2216,0,2025,1536,0.004604,0.141,12.533,12.281,0.003,0,calibration
+84,773,superhero,"Which superhero has the same eyes, hair and skin colour? Indicate the publisher of the superhero.","which superhero refers to superhero_name; the same eyes, hair and skin colour refers to hair_colour_id = skin_colour_id AND hair_colour_id = eye_colour_id; publisher refers to publisher_name;","SELECT T1.superhero_name, T2.publisher_name FROM superhero AS T1 INNER JOIN publisher AS T2 ON T1.publisher_id = T2.id WHERE T1.eye_colour_id = T1.hair_colour_id AND T1.eye_colour_id = T1.skin_colour_id","SELECT superhero.superhero_name, publisher.publisher_name
+FROM superhero
+JOIN publisher ON superhero.publisher_id = publisher.id
+JOIN colour AS eye_colour ON superhero.eye_colour_id = eye_colour.id
+JOIN colour AS hair_colour ON superhero.hair_colour_id = hair_colour.id
+JOIN colour AS skin_colour ON superhero.skin_colour_id = skin_colour.id
+WHERE superhero.eye_colour_id = superhero.hair_colour_id
+  AND superhero.hair_colour_id = superhero.skin_colour_id
+  AND superhero.eye_colour_id IS NOT NULL
+GROUP BY superhero.superhero_name, publisher.publisher_name
+ORDER BY superhero.superhero_name ASC;",True,challenging,1,SCHEMA_ERROR,,3817,34.3,4,5006,0,3394,2560,0.008039,0.297,19.059,14.975,0.006,0.0,calibration
+85,779,superhero,How many powers does Amazo hero have?,Amazo hero refers to superhero_name = 'Amazo';,SELECT COUNT(T1.power_id) FROM hero_power AS T1 INNER JOIN superhero AS T2 ON T1.hero_id = T2.id WHERE T2.superhero_name = 'Amazo',SELECT COUNT(DISTINCT hero_power.power_id) FROM superhero JOIN hero_power ON superhero.id = hero_power.hero_id JOIN superpower ON hero_power.power_id = superpower.id WHERE superhero.superhero_name = 'Amazo';,True,simple,0,,,2825,13.1,2,2125,0,994,768,0.002519,0.141,8.881,4.1,0.003,0,calibration
+86,782,superhero,List the heroes' names whose eyes and hair colours are both black.,heroes' names refers to superhero_name; eyes and hair colours are both black refers to eye_colour_id AND hair_colour_id WHERE colour.colour = 'Black';,SELECT T1.superhero_name FROM superhero AS T1 INNER JOIN colour AS T2 ON T1.eye_colour_id = T2.id AND T1.hair_colour_id = T2.id WHERE T2.colour = 'Black',"SELECT superhero.superhero_name
+FROM superhero
+JOIN colour AS eye_colour ON superhero.eye_colour_id = eye_colour.id
+JOIN colour AS hair_colour ON superhero.hair_colour_id = hair_colour.id
+WHERE eye_colour.colour = 'Black' COLLATE NOCASE
+  AND hair_colour.colour = 'Black' COLLATE NOCASE
+ORDER BY superhero.superhero_name ASC;",True,moderate,0,,,2688,13.9,2,2119,0,1301,960,0.003132,0.141,10.263,3.454,0.004,0,calibration
+87,785,superhero,Describe the names of neutral alignment superheroes.,names of superheroes refers to superhero_name; neutral alignment refers to alignment = 'Neutral';,SELECT T1.superhero_name FROM superhero AS T1 INNER JOIN alignment AS T2 ON T1.alignment_id = T2.id WHERE T2.alignment = 'Neutral',"SELECT superhero.superhero_name
+FROM superhero
+JOIN alignment ON superhero.alignment_id = alignment.id
+WHERE alignment.alignment COLLATE NOCASE = 'Neutral'
+  AND superhero.superhero_name IS NOT NULL
+ORDER BY superhero.superhero_name ASC;",True,simple,0,,,2706,8.0,2,2034,0,684,448,0.001877,0.227,4.751,3.042,0.004,0,calibration
+88,786,superhero,How many heroes have the highest attribute value in strength?,highest attribute value in strength refers to MAX(attribute_value) WHERE attribute_name = 'Strength';,SELECT COUNT(T1.hero_id) FROM hero_attribute AS T1 INNER JOIN attribute AS T2 ON T1.attribute_id = T2.id WHERE T2.attribute_name = 'Strength' AND T1.attribute_value = ( SELECT MAX(attribute_value) FROM hero_attribute ),SELECT COUNT(DISTINCT hero_attribute.hero_id) FROM hero_attribute JOIN attribute ON hero_attribute.attribute_id = attribute.id WHERE attribute.attribute_name = 'Strength' AND hero_attribute.attribute_value = (SELECT MAX(h.attribute_value) FROM hero_attribute h JOIN attribute a ON h.attribute_id = a.id WHERE a.attribute_name = 'Strength');,True,moderate,0,,,2815,11.5,2,2114,0,1137,896,0.002803,0.128,7.476,3.931,0.003,0,calibration
+89,549,codebase_community,"From which post is the tag ""bayesian"" excerpted from? Please give the body of the post.","""bayesian"" is the TagName; excerpt from refers to ExcerptPostId",SELECT T2.Body FROM tags AS T1 INNER JOIN posts AS T2 ON T2.Id = T1.ExcerptPostId WHERE T1.TagName = 'bayesian',"SELECT posts.Body
+FROM tags
+JOIN posts ON tags.ExcerptPostId = posts.Id
+WHERE tags.TagName = 'bayesian';",True,simple,0,,,6207,6.3,2,4671,0,489,320,0.002146,0.159,3.877,2.297,0.008,0,calibration
+90,568,codebase_community,Provide the display name of the user who made the vote No.6347.,vote no. 6347 refers to Id = '6347',SELECT T1.DisplayName FROM users AS T1 INNER JOIN votes AS T2 ON T1.Id = T2.UserId WHERE T2.Id = 6347,SELECT users.DisplayName FROM votes JOIN users ON votes.UserId = users.Id WHERE votes.Id = 6347;,True,simple,0,,,7402,10.1,2,5444,0,709,576,0.002779,0.128,5.767,4.231,0.003,0,calibration
+91,571,codebase_community,"For the user No.24, how many times is the number of his/her posts compared to his/her votes?","user no. 24 refers to UserId = OwnerUserId = '24'; times of his/her post than votes = Divide (Count(post.Id), Count(votes.Id))",SELECT CAST(COUNT(DISTINCT T2.Id) AS REAL) / COUNT(DISTINCT T1.Id) FROM votes AS T1 INNER JOIN posts AS T2 ON T1.UserId = T2.OwnerUserId WHERE T1.UserId = 24,"SELECT CAST((SELECT COUNT(Id) FROM posts WHERE OwnerUserId = 24) AS REAL) / NULLIF((SELECT COUNT(Id) FROM votes WHERE UserId = 24), 0) AS ratio;",True,moderate,0,,,7489,13.0,2,5504,0,1041,832,0.003458,0.13,7.629,4.996,0.173,0,calibration
+92,573,codebase_community,Write the contents of comments with a score of 17.,score of 17 refers to Score = 17; contents of comments refers to Text,SELECT Text FROM comments WHERE Score = 17,SELECT Text FROM comments WHERE Score = 17;,True,simple,0,,,7489,6.0,2,5409,0,362,256,0.002076,0.123,3.893,1.856,0.126,0,calibration
+93,578,codebase_community,Which user made a post titled 'Understanding what Dassault iSight is doing?' and how much is the reputation of the user?,"""Understanding what Dassault iSight is doing?"" is the Title of post; user refers to DisplayName;","SELECT T1.DisplayName, T1.Reputation FROM users AS T1 INNER JOIN posts AS T2 ON T1.Id = T2.OwnerUserId WHERE T2.Title = 'Understanding what Dassault iSight is doing?'","SELECT COALESCE(u.DisplayName, u2.DisplayName) AS DisplayName, COALESCE(u.Reputation, u2.Reputation) AS Reputation
+FROM posts p
+LEFT JOIN users u ON p.OwnerUserId = u.Id
+LEFT JOIN users u2 ON p.OwnerUserId IS NULL AND u2.DisplayName = p.OwnerDisplayName
+WHERE p.Title = 'Understanding what Dassault iSight is doing?' AND p.PostTypeId = 1;",True,moderate,0,,,7471,17.7,2,5558,0,1825,1536,0.00504,0.124,7.126,10.177,0.265,0,calibration
+94,587,codebase_community,Calculate the average view count of each post tagged as 'humor' and list the title and the comment of each post.,tagged as  'humor' refers to tag = '<humor>'; comment of the post refers to Text; average view count = AVG(ViewCount),"SELECT AVG(T2.ViewCount), T2.Title, T1.Text FROM comments AS T1 INNER JOIN posts AS T2 ON T2.Id = T1.PostId  WHERE T2.Tags = '<humor>' GROUP BY T2.Title, T1.Text ","SELECT AVG(posts.ViewCount) OVER () AS AvgViewCount, posts.Title, comments.Text
+FROM posts
+LEFT JOIN comments ON posts.Id = comments.PostId
+WHERE posts.Tags LIKE '%<humor>%'
+ORDER BY posts.Title ASC;",False,moderate,0,,,7489,23.3,2,5534,0,1921,1664,0.005225,0.129,13.416,8.851,0.817,0,calibration
+95,592,codebase_community,How many users are awarded with more than 5 badges?,more than 5 badges refers to Count (Name) > 5; user refers to UserId,"SELECT COUNT(UserId) FROM ( SELECT UserId, COUNT(Name) AS num FROM badges GROUP BY UserId ) T WHERE T.num > 5",SELECT COUNT(*) FROM (SELECT badges.UserId FROM badges JOIN users ON badges.UserId = users.Id WHERE badges.UserId IS NOT NULL AND users.Id IS NOT NULL GROUP BY badges.UserId HAVING COUNT(badges.Id) > 5) AS t;,True,simple,0,,,6817,17.0,2,5043,0,1467,1216,0.004195,0.119,11.943,4.897,0.053,0,calibration
+96,629,codebase_community,Calculate the ratio of votes in 2010 and 2011.,"DIVIDE(COUNT(Id where YEAR(CreationDate) = 2010), COUNT(Id where YEAR(CreationDate) = 2011)) FROM votes;","SELECT CAST(SUM(IIF(STRFTIME('%Y', CreationDate) = '2010', 1, 0)) AS REAL) / SUM(IIF(STRFTIME('%Y', CreationDate) = '2011', 1, 0)) FROM votes","SELECT (CAST(SUM(CASE WHEN substr(CreationDate,1,4)='2010' THEN 1 ELSE 0 END) AS REAL) / NULLIF(SUM(CASE WHEN substr(CreationDate,1,4)='2011' THEN 1 ELSE 0 END),0)) AS ratio FROM votes WHERE CreationDate IS NOT NULL AND substr(CreationDate,1,4) IN ('2010','2011');",True,simple,0,,,6817,15.0,2,5073,0,1460,1152,0.004188,0.137,7.314,7.47,0.014,0,calibration
+97,633,codebase_community,Which post by slashnick has the most answers count? State the post ID.,most answers count refers to MAX(AnswerCount); post by slashnick refers to DisplayName = 'slashnick';,SELECT T2.PostId FROM users AS T1 INNER JOIN postHistory AS T2 ON T1.Id = T2.UserId INNER JOIN posts AS T3 ON T2.PostId = T3.Id WHERE T1.DisplayName = 'slashnick' ORDER BY T3.AnswerCount DESC LIMIT 1,"SELECT posts.Id
+FROM posts
+LEFT JOIN users ON posts.OwnerUserId = users.Id
+WHERE posts.PostTypeId = 1
+  AND (posts.OwnerDisplayName = 'slashnick' OR users.DisplayName = 'slashnick')
+ORDER BY posts.AnswerCount DESC, posts.Id ASC
+LIMIT 1;",False,moderate,0,,,7466,16.1,2,5510,0,1305,1024,0.003987,0.131,9.084,5.67,0.414,0,calibration
+98,634,codebase_community,"Among posts by Harvey Motulsky and Noah Snyder, which one has higher popularity?",Has higher popularity means the post has higher view count ; calculation = MAX(SUM(ViewCount)) where DisplayName = 'Harvey Motulsky' OR DisplayName = 'Noah Snyder';,SELECT T1.DisplayName FROM users AS T1 INNER JOIN postHistory AS T2 ON T1.Id = T2.UserId INNER JOIN posts AS T3 ON T2.PostId = T3.Id WHERE T1.DisplayName = 'Harvey Motulsky' OR T1.DisplayName = 'Noah Snyder' GROUP BY T1.DisplayName ORDER BY SUM(T3.ViewCount) DESC LIMIT 1,"SELECT users.DisplayName
+FROM posts
+JOIN users ON posts.OwnerUserId = users.Id
+WHERE users.DisplayName IN ('Harvey Motulsky', 'Noah Snyder')
+  AND posts.ViewCount IS NOT NULL
+GROUP BY users.DisplayName
+ORDER BY MAX(posts.ViewCount) DESC
+LIMIT 1;",True,challenging,0,,,7489,19.5,2,5505,0,1477,1216,0.00433,0.121,12.607,5.703,0.384,0,calibration
+99,637,codebase_community,State all the tags used by Mark Meckes in his posts that doesn't have comments.,used by Mark Meckes refers to DisplayName = 'Mark Meckes'; Doen't have comments refers to CommentCount = 0;,SELECT T3.Tags FROM users AS T1 INNER JOIN postHistory AS T2 ON T1.Id = T2.UserId INNER JOIN posts AS T3 ON T3.Id = T2.PostId WHERE T1.DisplayName = 'Mark Meckes' AND T3.CommentCount = 0,"WITH owner_posts AS (
+  SELECT p.*
+  FROM posts p
+  LEFT JOIN users u ON p.OwnerUserId = u.Id
+  LEFT JOIN comments c ON p.Id = c.PostId
+  WHERE (u.DisplayName = 'Mark Meckes' OR p.OwnerDisplayName = 'Mark Meckes')
+    AND p.Tags IS NOT NULL AND p.Tags <> ''
+    AND c.Id IS NULL
+),
+tags_iter(postid, tagstr) AS (
+  SELECT Id, Tags FROM owner_posts
+  UNION ALL
+  SELECT postid, substr(tagstr, instr(tagstr, '><') + 2)
+  FROM tags_iter
+  WHERE instr(tagstr, '><') > 0
+),
+extracted(postid, tagname) AS (
+  SELECT postid,
+    CASE
+      WHEN instr(tagstr, '><') > 0 THEN substr(tagstr, 2, instr(tagstr, '><') - 2)
+      ELSE substr(tagstr, 2, instr(tagstr, '>') - 2)
+    END
+  FROM tags_iter
+  WHERE tagstr <> ''
+)
+SELECT DISTINCT t.TagName
+FROM extracted e
+JOIN tags t ON t.TagName = e.tagname
+ORDER BY t.TagName ASC;",False,moderate,0,,,7489,30.4,2,5607,0,3261,2688,0.007924,0.131,10.758,18.177,0.584,0,calibration
+100,639,codebase_community,"Based on posts posted by Community, calculate the percentage of posts that use the R language.","DIVIDE(COUNT(PostId WHERE TagName = 'r')), (COUNT(PostId WHERE DisplayName = 'Community')) as percentage; R language refers to tagname = 'r'","SELECT CAST(SUM(IIF(T3.TagName = 'r', 1, 0)) AS REAL) * 100 / COUNT(T1.Id) FROM users AS T1 INNER JOIN postHistory AS T2 ON T1.Id = T2.UserId INNER JOIN tags AS T3 ON T3.ExcerptPostId = T2.PostId WHERE T1.DisplayName = 'Community'","SELECT CASE WHEN COUNT(*)=0 THEN 0.0 ELSE 100.0 * SUM(CASE WHEN posts.Tags IS NOT NULL AND posts.Tags LIKE '%<r>%' THEN 1.0 ELSE 0.0 END) / COUNT(*) END AS percentage
+FROM posts
+JOIN users ON posts.OwnerUserId = users.Id
+WHERE users.DisplayName = 'Community';",False,challenging,0,,,6886,18.5,2,5123,0,1717,1472,0.004715,0.112,9.93,7.403,0.406,0,calibration
+101,665,codebase_community,What is the average monthly number of links created in 2010 for posts that have no more than 2 answers?,"calculation = DIVIDE(COUNT(Id where YEAR(CreationDate) = 2010 and AnswerCount < = 2), 12)","SELECT CAST(COUNT(T1.Id) AS REAL) / 12 FROM postLinks AS T1 INNER JOIN posts AS T2 ON T1.PostId = T2.Id WHERE T2.AnswerCount <= 2 AND STRFTIME('%Y', T1.CreationDate) = '2010'","SELECT COUNT(postLinks.Id)*1.0/12.0
+FROM postLinks
+JOIN posts ON postLinks.PostId = posts.Id
+WHERE postLinks.CreationDate >= '2010-01-01'
+  AND postLinks.CreationDate <= '2010-12-31 23:59:59'
+  AND posts.AnswerCount <= 2;",True,moderate,0,,,6886,15.9,2,5152,0,1609,1344,0.004506,0.144,9.985,5.69,0.027,0,calibration
+102,678,codebase_community,Which post by Harvey Motulsky has the most views? Please give the id and title of this post.,DisplayName = 'Harvey Motulsky'; the most views refer to MAX(ViewCount);,"SELECT T2.Id, T2.Title FROM users AS T1 INNER JOIN posts AS T2 ON T1.Id = T2.OwnerUserId WHERE T1.DisplayName = 'Harvey Motulsky' ORDER BY T2.ViewCount DESC LIMIT 1","SELECT posts.Id, posts.Title
+FROM posts
+LEFT JOIN users ON posts.OwnerUserId = users.Id
+WHERE (users.DisplayName = 'Harvey Motulsky' OR posts.OwnerDisplayName = 'Harvey Motulsky')
+  AND posts.ViewCount = (
+    SELECT MAX(p2.ViewCount)
+    FROM posts p2
+    LEFT JOIN users u2 ON p2.OwnerUserId = u2.Id
+    WHERE (u2.DisplayName = 'Harvey Motulsky' OR p2.OwnerDisplayName = 'Harvey Motulsky')
+  );",True,simple,0,,,7466,16.0,2,5518,0,1353,1024,0.004085,0.152,8.817,6.569,0.43,0,calibration
+103,685,codebase_community,Identify the total views on the post 'Computer Game Datasets'. Name the user who posted it last time.,total views refer to ViewCount; Name the user refers to DisplayName; post 'Computer Game Datasets' refers to Text = 'Computer Game Datasets';,"SELECT T2.ViewCount, T3.DisplayName FROM postHistory AS T1 INNER JOIN posts AS T2 ON T1.PostId = T2.Id INNER JOIN users AS T3 ON T2.LastEditorUserId = T3.Id WHERE T1.Text = 'Computer Game Datasets'","SELECT p.ViewCount, u.DisplayName
+FROM posts p
+LEFT JOIN users u ON p.LastEditorUserId = u.Id
+WHERE p.Title = 'Computer Game Datasets';",False,moderate,0,,,7489,17.0,2,5526,0,1334,1088,0.00405,0.15,10.833,5.168,0.265,0,calibration
+104,340,card_games,Which are the cards that have incredibly powerful foils.,incredibly poweful foils refers to cardKingdomFoilId is not null AND cardKingdomId is not null,SELECT id FROM cards WHERE cardKingdomFoilId IS NOT NULL AND cardKingdomId IS NOT NULL,"SELECT cards.name
+FROM cards
+JOIN sets ON ',' || cards.printings || ',' LIKE '%,' || sets.code || ',%'
+WHERE cards.hasFoil = 1
+  AND sets.isFoilOnly = 1
+GROUP BY cards.id, cards.name
+ORDER BY cards.name ASC;",False,simple,0,,,16762,14.6,2,11229,0,1159,832,0.005125,0.147,8.696,4.474,1.28,0,calibration
+105,358,card_games,"What is the border color of card ""Ancestor's Chosen""?",name of card  = 'Ancestor''s Chosen' ;,SELECT DISTINCT borderColor FROM cards WHERE name = 'Ancestor''s Chosen',SELECT borderColor FROM cards WHERE name = 'Ancestor''s Chosen';,False,simple,0,,,16762,7.2,2,11082,0,503,384,0.003776,0.15,4.779,1.816,0.419,0,calibration
+106,368,card_games,What is the percentage of borderless cards?,"borderless card refers to borderColor = 'borderless'; percentage = Divide(Count (id) where borderColor = 'borderless', Count(id)) *100",SELECT CAST(SUM(CASE WHEN borderColor = 'borderless' THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(id) FROM cards,"SELECT ROUND(100.0 * SUM(CASE WHEN borderColor = 'borderless' THEN 1 ELSE 0 END) / COUNT(*), 2) AS percentage FROM cards;",False,simple,0,,,16762,12.1,2,11122,0,1024,832,0.004829,0.17,5.686,5.741,0.503,0,calibration
+107,391,card_games,"Among the Artifact cards, which are black color and comes with foreign languague translation?",Artifact card refers to originalType = 'Artifact'; black color refers to colors = 'B'; foreign language refers to language in foreign_data,SELECT DISTINCT T1.name FROM cards AS T1 INNER JOIN foreign_data AS T2 ON T1.uuid = T2.uuid WHERE T1.originalType = 'Artifact' AND T1.colors = 'B',"SELECT DISTINCT cards.name
+FROM cards
+JOIN foreign_data ON cards.uuid = foreign_data.uuid
+WHERE (cards.types LIKE '%Artifact%' OR cards.type LIKE '%Artifact%')
+  AND (cards.colors LIKE '%B%' OR cards.colorIdentity LIKE '%B%')
+  AND (foreign_data.language IS NOT NULL OR foreign_data.name IS NOT NULL OR foreign_data.text IS NOT NULL)
+ORDER BY cards.name ASC;",False,moderate,0,,,16762,14.0,2,11199,0,1147,832,0.005094,0.145,6.976,5.988,0.828,0,calibration
+108,402,card_games,What is the percentage of Story Spotlight cards that do not have a text box? List them by their ID.,"Story Spotlight cards that do not have a text box refers to isStorylight = 1 and isTextless = 0; Percentage = DIVIDE(SUM(count(id) where isStorylight = 1 AND isTextless = 0 ), SUM(count(id))) * 100",SELECT CAST(SUM(CASE WHEN isTextless = 0 AND  isStorySpotlight = 1 THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(id) FROM cards,"SELECT c.id,
+       CASE WHEN t.total_spotlights>0 THEN (n.num_textless * 100.0 / t.total_spotlights) ELSE NULL END
+FROM cards c
+CROSS JOIN (SELECT COUNT(*) AS num_textless FROM cards WHERE isStorySpotlight = 1 AND isTextless = 1) n
+CROSS JOIN (SELECT COUNT(*) AS total_spotlights FROM cards WHERE isStorySpotlight = 1) t
+WHERE c.isStorySpotlight = 1 AND c.isTextless = 1
+ORDER BY c.id ASC;",False,moderate,0,,,16762,19.6,2,11188,0,1756,1472,0.006309,0.129,9.265,9.624,0.537,0,calibration
+109,407,card_games,Lists all types of cards in German.,"German refer to language; all types refer to the subtypes, supertypes; subtypes is not null AND supertypes is not null","SELECT T1.subtypes, T1.supertypes FROM cards AS T1 INNER JOIN foreign_data AS T2 ON T1.uuid = T2.uuid WHERE T2.language = 'German' AND T1.subtypes IS NOT NULL AND T1.supertypes IS NOT NULL","SELECT ""type"" FROM foreign_data WHERE language = 'German' AND ""type"" IS NOT NULL GROUP BY ""type"" ORDER BY ""type"" ASC;",False,moderate,0,,,16762,9.4,2,11110,0,699,512,0.004176,0.146,5.004,3.596,0.45,0,calibration
+110,422,card_games,What is the language of the card with the multiverse number 149934?,multiverse number 149934 refers to multiverseid = 149934;,SELECT language FROM foreign_data WHERE multiverseid = 149934,SELECT language FROM foreign_data WHERE multiverseid = 149934;,True,simple,0,,,16762,5.7,2,11088,0,366,256,0.003504,0.103,3.583,1.774,0.222,0,calibration
+111,459,card_games,"Which card costs more converted mana, ""Serra Angel"" or ""Shrine Keeper""?","""Serra Angel"" refers to name = 'Serra Angel'; ""Shrine Keeper"" refers to name = 'Shrine Keeper'; card costs more converted mana when the value of convertedManaCost is greater","SELECT name FROM cards WHERE name IN ('Serra Angel', 'Shrine Keeper') ORDER BY convertedManaCost DESC LIMIT 1","SELECT name FROM cards WHERE name IN ('Serra Angel','Shrine Keeper') GROUP BY name ORDER BY MAX(convertedManaCost) DESC LIMIT 1;",True,moderate,0,,,16762,11.4,2,11115,0,1056,896,0.004891,0.095,6.518,4.252,0.514,0,calibration
+112,468,card_games,"What is the Simplified Chinese translation of the name of the set ""Eighth Edition""?",Eighth Edition is the name of card set which refers to name = 'Eighth Edition'; Simplified Chinese refers to language = 'Chinese Simplified'; translation of the name refers to translation,SELECT T2.translation FROM sets AS T1 INNER JOIN set_translations AS T2 ON T2.setCode = T1.code WHERE T1.name = 'Eighth Edition' AND T2.language = 'Chinese Simplified',"SELECT set_translations.translation
+FROM sets
+JOIN set_translations ON sets.code = set_translations.setCode
+WHERE sets.name = 'Eighth Edition'
+  AND set_translations.language = 'Chinese Simplified';",True,moderate,0,,,16762,9.4,2,11160,0,669,448,0.004128,0.119,5.857,3.448,0.007,0,calibration
+113,469,card_games,"Did the set of cards with ""Angel of Mercy"" appear on Magic: The Gathering Online?","card set ""Angel of Mercy"" refers to name = 'Angel of Mercy'; appear on Magic: The Gathering Online refers to mtgoCode is NOT NULL and vice versa","SELECT IIF(T2.mtgoCode IS NOT NULL, 'YES', 'NO') FROM cards AS T1 INNER JOIN sets AS T2 ON T2.code = T1.setCode WHERE T1.name = 'Angel of Mercy'","SELECT sets.code, sets.name
+FROM cards
+JOIN sets ON cards.setCode = sets.code
+WHERE cards.name = 'Angel of Mercy'
+  AND (
+    (sets.mtgoCode IS NOT NULL AND sets.mtgoCode != '')
+    OR sets.isOnlineOnly = 1
+    OR cards.availability LIKE '%mtgo%'
+  )
+GROUP BY sets.code, sets.name
+ORDER BY sets.releaseDate DESC;",False,moderate,0,,,16762,16.8,2,11205,0,1540,1216,0.005881,0.152,9.295,6.822,0.533,0,calibration
+114,472,card_games,"Among the sets in the block ""Ice Age"", how many of them have an Italian translation?","sets in the block ""Ice Age"" refers to block = 'Ice Age'; Italian translation refers to language = 'Italian' and translation is not null",SELECT COUNT(DISTINCT T1.id) FROM sets AS T1 INNER JOIN set_translations AS T2 ON T2.setCode = T1.code WHERE T1.block = 'Ice Age' AND T2.language = 'Italian' AND T2.translation IS NOT NULL,SELECT COUNT(DISTINCT sets.id) FROM sets JOIN set_translations ON sets.code = set_translations.setCode WHERE sets.block = 'Ice Age' AND set_translations.language = 'Italian';,False,moderate,0,,,16762,11.0,2,11170,0,1126,896,0.005045,0.127,8.142,2.764,0.011,0,calibration
+115,473,card_games,Is the set of cards with Adarkar Valkyrie only available outside the United States?,card set Adarkar Valkyrie refers to name = 'Adarkar Valkyrie'; isForeignOnly = 1 means only available outside the United States;,"SELECT IIF(isForeignOnly = 1, 'YES', 'NO') FROM cards AS T1 INNER JOIN sets AS T2 ON T2.code = T1.setCode WHERE T1.name = 'Adarkar Valkyrie'","SELECT sets.isForeignOnly, COUNT(DISTINCT sets.code) FROM cards JOIN sets ON cards.setCode = sets.code WHERE cards.name = 'Adarkar Valkyrie' GROUP BY sets.isForeignOnly;",False,moderate,0,,,16762,22.5,2,11166,0,1567,1344,0.005926,0.141,10.803,10.949,0.541,0,calibration
+116,477,card_games,"Which of these artists have designed a card in the set Coldsnap, Jeremy Jarvis, Aaron Miller or Chippy?","card set Coldsnap refers to name = 'Coldsnap'; Jeremy Jarvis, Aaron Miller or Chippy are the name of artists which refers to artist IN ('Jeremy Jarvis', 'Aaron Miller','Chippy');",SELECT T1.artist FROM cards AS T1 INNER JOIN sets AS T2 ON T2.code = T1.setCode WHERE (T2.name = 'Coldsnap' AND T1.artist = 'Chippy') OR (T2.name = 'Coldsnap' AND T1.artist = 'Aaron Miller') OR (T2.name = 'Coldsnap' AND T1.artist = 'Jeremy Jarvis') GROUP BY T1.artist,"SELECT cards.artist
+FROM sets
+JOIN cards ON sets.code = cards.setCode
+WHERE sets.name = 'Coldsnap'
+  AND cards.artist IN ('Jeremy Jarvis', 'Aaron Miller', 'Chippy')
+GROUP BY cards.artist
+ORDER BY cards.artist ASC;",True,challenging,0,,,16762,17.4,2,11177,0,1085,832,0.004964,0.144,10.945,5.754,0.532,0,calibration
+117,487,card_games,What is the percentage of incredibly powerful cards in the set Coldsnap?,"card set Coldsnap refers to name = 'Coldsnap'; foil is incredibly powerful refers to cardKingdomFoilId is not null AND cardKingdomId is not null; the percentage of incredibly powerful cards in the set refers to DIVIDE(SUM(incredibly powerful), SUM(name = 'Coldsnap'))*100",SELECT CAST(SUM(CASE WHEN T1.cardKingdomFoilId IS NOT NULL AND T1.cardKingdomId IS NOT NULL THEN 1 ELSE 0 END) AS REAL) * 100 / COUNT(T1.id) FROM cards AS T1 INNER JOIN sets AS T2 ON T2.code = T1.setCode WHERE T2.name = 'Coldsnap',"SELECT CASE WHEN total=0 THEN 0.0 ELSE powerful*100.0/total END
+FROM (
+  SELECT
+    SUM(CASE WHEN CAST(CAST(cards.power AS INTEGER) AS TEXT)=cards.power THEN 1 ELSE 0 END) AS total,
+    SUM(CASE WHEN CAST(CAST(cards.power AS INTEGER) AS TEXT)=cards.power AND CAST(cards.power AS INTEGER) >= 8 THEN 1 ELSE 0 END) AS powerful
+  FROM cards
+  JOIN sets ON cards.setCode = sets.code
+  WHERE sets.name = 'Coldsnap'
+);",False,challenging,0,,,16762,28.7,2,11250,0,2508,2112,0.007829,0.127,13.957,14.02,0.586,0,calibration
+118,522,card_games,Which cards are ranked 1st on EDHRec? List all of the cards name and its banned play format.,ranked 1st on EDHRec refers to edhrecRank = 1; banned refers to status = 'Banned'; play format refers to format; cards name refers to name,"SELECT T1.name, T2.format FROM cards AS T1 INNER JOIN legalities AS T2 ON T2.uuid = T1.uuid WHERE T1.edhrecRank = 1 AND T2.status = 'Banned' GROUP BY T1.name, T2.format","SELECT cards.name, legalities.format
+FROM cards
+JOIN legalities ON cards.uuid = legalities.uuid
+WHERE cards.edhrecRank = 1
+  AND legalities.status = 'Banned'
+ORDER BY cards.name ASC;",False,moderate,0,,,16762,12.2,2,11182,0,889,640,0.004574,0.156,7.219,4.171,0.607,0,calibration
+119,530,card_games,List all the frame styles and cards Allen Williams worked on and find any banned cards if there are any.,frame styles refers to frameVersion; cards Allen Williams worked on refers to artist = 'Allen Williams'; banned cards refers to status = 'Banned',"SELECT DISTINCT T1.frameVersion, T1.name , IIF(T2.status = 'Banned', T1.name, 'NO') FROM cards AS T1 INNER JOIN legalities AS T2 ON T1.uuid = T2.uuid WHERE T1.artist = 'Allen Williams'","SELECT cards.name, cards.frameVersion, cards.frameEffects, GROUP_CONCAT(DISTINCT CASE WHEN legalities.status = 'Banned' THEN legalities.format END) AS banned_in_formats
+FROM cards
+LEFT JOIN legalities ON cards.uuid = legalities.uuid
+WHERE cards.artist = 'Allen Williams'
+GROUP BY cards.uuid
+ORDER BY cards.name ASC;",False,moderate,0,,,16762,19.8,2,11173,0,1820,1600,0.006433,0.125,8.565,9.326,1.639,0,calibration
+120,206,toxicology,What elements are in the TR004_8_9 bond atoms?,TR004_8_9 bond atoms refers to bond_id = 'TR004_8_9';,SELECT DISTINCT T1.element FROM atom AS T1 INNER JOIN connected AS T2 ON T1.atom_id = T2.atom_id WHERE T2.bond_id = 'TR004_8_9',"SELECT atom.element
+FROM connected
+JOIN bond ON connected.bond_id = bond.bond_id
+JOIN atom ON atom.atom_id = connected.atom_id
+WHERE bond.bond_id = 'TR004_8_9'
+GROUP BY atom.element;",True,challenging,0,,,1560,12.0,2,1508,0,1123,896,0.002623,0.135,7.384,4.438,0.012,0,calibration
+121,207,toxicology,What elements are in a double type bond?,double type bond refers to bond_type = '=';,SELECT DISTINCT T1.element FROM atom AS T1 INNER JOIN bond AS T2 ON T1.molecule_id = T2.molecule_id INNER JOIN connected AS T3 ON T1.atom_id = T3.atom_id WHERE T2.bond_type = '=',"SELECT element FROM (
+  SELECT a.element AS element
+  FROM bond b
+  JOIN connected c ON b.bond_id = c.bond_id
+  JOIN atom a ON c.atom_id = a.atom_id
+  WHERE b.bond_type = '='
+  UNION
+  SELECT a2.element AS element
+  FROM bond b
+  JOIN connected c ON b.bond_id = c.bond_id
+  JOIN atom a2 ON c.atom_id2 = a2.atom_id
+  WHERE b.bond_type = '='
+) ORDER BY element ASC;",False,challenging,0,,,1560,15.6,2,1530,0,1541,1216,0.003464,0.155,7.736,7.616,0.027,0,calibration
+122,213,toxicology,What type of bond is there between the atoms TR004_8 and TR004_20?,type of bond refers to bond_type; between the atoms TR004_8 and TR004_20 refers to atom_id = 'TR004_8' AND atom_id2 = 'TR004_20' OR another way around,SELECT T1.bond_type FROM bond AS T1 INNER JOIN connected AS T2 ON T1.bond_id = T2.bond_id WHERE T2.atom_id = 'TR004_8' AND T2.atom_id2 = 'TR004_20' OR T2.atom_id2 = 'TR004_8' AND T2.atom_id = 'TR004_20',"SELECT bond.bond_type
+FROM connected
+JOIN bond ON connected.bond_id = bond.bond_id
+WHERE ((connected.atom_id = 'TR004_8' AND connected.atom_id2 = 'TR004_20') OR (connected.atom_id = 'TR004_20' AND connected.atom_id2 = 'TR004_8'))
+  AND bond.molecule_id = 'TR004';",True,moderate,0,,,1560,10.7,2,1544,0,805,512,0.001996,0.128,6.507,4.086,0.003,0,calibration
+123,220,toxicology,Please list top three elements of the toxicology of the molecule TR000 in alphabetical order.,TR000 is the molecule id;,SELECT DISTINCT T.element FROM atom AS T WHERE T.molecule_id = 'TR000' ORDER BY T.element LIMIT 3,"SELECT element FROM (SELECT element, COUNT(*) AS cnt FROM atom WHERE molecule_id = 'TR000' GROUP BY element ORDER BY cnt DESC, element ASC LIMIT 3) ORDER BY element ASC;",True,challenging,0,,,1560,16.5,2,1514,0,1324,1088,0.003026,0.157,12.741,3.561,0.005,0,calibration
+124,226,toxicology,What is the percentage of double bonds in the molecule TR008? Please provide your answer as a percentage with five decimal places.,"double bond refers to bond_type = '='; TR008 is the molecule id; percentage = DIVIDE(SUM(bond_type = '='), COUNT(bond_id)) as percent where molecule_id = 'TR008'","SELECT ROUND(CAST(COUNT(CASE WHEN T.bond_type = '=' THEN T.bond_id ELSE NULL END) AS REAL) * 100 / COUNT(T.bond_id),5) FROM bond AS T WHERE T.molecule_id = 'TR008'","SELECT CASE WHEN COUNT(*)=0 THEN NULL ELSE printf('%.5f', SUM(CASE WHEN bond_type='=' THEN 1 ELSE 0 END)*100.0/COUNT(*)) END FROM bond WHERE molecule_id = 'TR008';",False,moderate,0,,,1560,13.9,2,1517,0,1178,960,0.002735,0.173,6.397,7.365,0.006,0,calibration
+125,227,toxicology,What is the percentage of molecules that are carcinogenic? Please provide your answer as a percentage with three decimal places.,"label = '+' mean molecules are carcinogenic; percentage = DIVIDE(SUM(label = '+'), COUNT(molecule_id)) as percent","SELECT ROUND(CAST(COUNT(CASE WHEN T.label = '+' THEN T.molecule_id ELSE NULL END) AS REAL) * 100 / COUNT(T.molecule_id),3) FROM molecule t","SELECT printf('%.3f', SUM(CASE WHEN label = '+' THEN 1 ELSE 0 END) * 100.0 / COUNT(*)) FROM molecule;",False,simple,0,,,1560,11.1,2,1483,0,876,704,0.002123,0.137,5.993,4.934,0.003,0,calibration
+126,240,toxicology,"List all the elements of the toxicology of the molecule ""TR004"".",TR004 is the molecule id;,SELECT DISTINCT T.element FROM atom AS T WHERE T.molecule_id = 'TR004',"SELECT element
+FROM atom
+WHERE molecule_id = 'TR004' AND element IS NOT NULL
+GROUP BY element
+ORDER BY element ASC;",True,challenging,0,,,1560,8.9,2,1443,0,565,448,0.001491,0.141,5.772,2.938,0.004,0,calibration
+127,244,toxicology,Is the molecule with the most double bonds carcinogenic?,double bond refers to bond_type = ' = '; label = '+' mean molecules are carcinogenic,"SELECT T1.label FROM molecule AS T1 INNER JOIN ( SELECT T.molecule_id, COUNT(T.bond_type) FROM bond AS T WHERE T.bond_type = '=' GROUP BY T.molecule_id ORDER BY COUNT(T.bond_type) DESC LIMIT 1 ) AS T2 ON T1.molecule_id = T2.molecule_id","WITH counts AS (
+  SELECT m.molecule_id, m.label, COUNT(b.bond_id) AS cnt
+  FROM bond b
+  JOIN molecule m ON b.molecule_id = m.molecule_id
+  WHERE b.bond_type = '='
+  GROUP BY m.molecule_id, m.label
+)
+SELECT label
+FROM counts
+WHERE cnt = (SELECT MAX(cnt) FROM counts);",False,moderate,0,,,1560,19.7,2,1509,0,1571,1280,0.003519,0.121,8.151,11.417,0.007,0,calibration
+128,249,toxicology,What are the elements of the atoms of TR144_8_19?,TR144_8_19 is the bond id; ,SELECT T2.element FROM connected AS T1 INNER JOIN atom AS T2 ON T1.atom_id = T2.atom_id WHERE T1.bond_id = 'TR144_8_19',"SELECT atom.element
+FROM connected
+JOIN atom ON (connected.atom_id = atom.atom_id OR connected.atom_id2 = atom.atom_id)
+WHERE connected.bond_id = 'TR144_8_19'
+ORDER BY atom.atom_id ASC;",False,challenging,0,,,1560,17.7,2,1529,0,1491,1280,0.003364,0.166,10.978,6.544,0.006,0,calibration
+129,255,toxicology,What proportion of single bonds are carcinogenic? Please provide your answer as a percentage with five decimal places.,"single bond refers to bond_type = '-'; label = '+' mean molecules are carcinogenic; proportion = DIVIDE(SUM(label = '+') * 100, COUNT(bond_id)) where bond_type = '-'","SELECT ROUND(CAST(COUNT(CASE WHEN T2.label = '+' THEN T1.bond_id ELSE NULL END) AS REAL) * 100 / COUNT(T1.bond_id),5) FROM bond AS T1 INNER JOIN molecule AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.bond_type = '-'","SELECT printf('%.5f', CASE WHEN COUNT(*)=0 THEN 0.0 ELSE (COUNT(CASE WHEN molecule.label = '+' THEN 1 END) * 100.0) / COUNT(*) END) FROM bond JOIN molecule ON bond.molecule_id = molecule.molecule_id WHERE bond.bond_type = '-';",False,moderate,0,,,1560,12.9,2,1508,0,1035,832,0.002447,0.136,7.292,5.462,0.012,0,calibration
+130,327,toxicology,Which non-carcinogenic molecules consisted more than 5 atoms?,label = '-' means molecules are non-carcinogenic; molecules consisted more than 5 atoms refers to COUNT(molecule_id) > 5,"SELECT T.molecule_id FROM ( SELECT T1.molecule_id, COUNT(T2.atom_id) FROM molecule AS T1 INNER JOIN atom AS T2 ON T1.molecule_id = T2.molecule_id WHERE T1.label = '-' GROUP BY T1.molecule_id HAVING COUNT(T2.atom_id) > 5 ) t","SELECT molecule.molecule_id
+FROM molecule
+JOIN atom ON atom.molecule_id = molecule.molecule_id
+WHERE molecule.label = '-'
+GROUP BY molecule.molecule_id
+HAVING COUNT(*) > 5;",True,moderate,0,,,1560,14.1,2,1495,0,932,704,0.002238,0.155,8.221,5.718,0.007,0,calibration
+131,5,california_schools,How many schools with an average score in Math greater than 400 in the SAT test are exclusively virtual?,Exclusively virtual refers to Virtual = 'F',SELECT COUNT(DISTINCT T2.School) FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode WHERE T2.Virtual = 'F' AND T1.AvgScrMath > 400,SELECT COUNT(DISTINCT schools.CDSCode) FROM satscores JOIN schools ON satscores.cds = schools.CDSCode WHERE satscores.AvgScrMath IS NOT NULL AND satscores.AvgScrMath > 400 AND schools.Virtual = 'F';,True,simple,0,,,12754,12.2,2,7824,0,967,704,0.00389,0.156,8.051,3.971,0.038,0,calibration
+132,23,california_schools,List the names of schools with more than 30 difference in enrollements between K-12 and ages 5-17? Please also give the full street adress of the schools.,Diffrence in enrollement = `Enrollment (K-12)` - `Enrollment (Ages 5-17)`,"SELECT T1.School, T1.Street FROM schools AS T1 INNER JOIN frpm AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.`Enrollment (K-12)` - T2.`Enrollment (Ages 5-17)` > 30","SELECT schools.School, schools.Street, schools.City, schools.Zip, schools.State
+FROM frpm
+JOIN schools ON frpm.CDSCode = schools.CDSCode
+WHERE frpm.""Enrollment (K-12)"" IS NOT NULL
+  AND frpm.""Enrollment (Ages 5-17)"" IS NOT NULL
+  AND ABS(frpm.""Enrollment (K-12)"" - frpm.""Enrollment (Ages 5-17)"") > 30
+ORDER BY ABS(frpm.""Enrollment (K-12)"" - frpm.""Enrollment (Ages 5-17)"") DESC;",False,moderate,0,,,12754,16.1,2,7899,0,1678,1280,0.005331,0.163,9.738,6.126,0.045,0,calibration
+133,26,california_schools,State the names and full communication address of high schools in Monterey which has more than 800 free or reduced price meals for ages 15-17?,"Full communication address should include Street, City, State and zip code if any.","SELECT T1.`School Name`, T2.Street, T2.City, T2.State, T2.Zip FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.County = 'Monterey' AND T1.`Free Meal Count (Ages 5-17)` > 800 AND T1.`School Type` = 'High Schools (Public)'","SELECT schools.School, (schools.MailStreet || ', ' || schools.MailCity || ', ' || schools.MailState || ' ' || schools.MailZip) AS ""Full Communication Address""
+FROM frpm
+JOIN schools ON frpm.CDSCode = schools.CDSCode
+WHERE (schools.County = 'Monterey' OR frpm.""County Name"" = 'Monterey')
+  AND (frpm.""School Type"" = 'High Schools (Public)' OR schools.SOCType = 'High Schools (Public)' OR schools.EILName = 'High School')
+  AND frpm.""FRPM Count (Ages 5-17)"" > 800
+ORDER BY schools.School ASC;",False,moderate,0,,,12754,24.5,2,7889,0,2329,1920,0.00663,0.164,10.005,14.28,0.039,0,calibration
+134,28,california_schools,"Consider the average difference between K-12 enrollment and 15-17 enrollment of schools that are locally funded, list the names and DOC type of schools which has a difference above this average.",Difference between K-12 enrollment and 15-17 enrollment can be computed by `Enrollment (K-12)` - `Enrollment (Ages 5-17)`,"SELECT T2.School, T2.DOC FROM frpm AS T1 INNER JOIN schools AS T2 ON T1.CDSCode = T2.CDSCode WHERE T2.FundingType = 'Locally funded' AND (T1.`Enrollment (K-12)` - T1.`Enrollment (Ages 5-17)`) > (SELECT AVG(T3.`Enrollment (K-12)` - T3.`Enrollment (Ages 5-17)`) FROM frpm AS T3 INNER JOIN schools AS T4 ON T3.CDSCode = T4.CDSCode WHERE T4.FundingType = 'Locally funded')","SELECT s.School, s.DOCType
+FROM frpm f
+JOIN schools s ON f.CDSCode = s.CDSCode
+WHERE s.FundingType = 'Locally funded'
+  AND f.""Enrollment (K-12)"" IS NOT NULL
+  AND f.""Enrollment (Ages 5-17)"" IS NOT NULL
+  AND ABS(f.""Enrollment (K-12)"" - f.""Enrollment (Ages 5-17)"") >
+    (SELECT AVG(ABS(f2.""Enrollment (K-12)"" - f2.""Enrollment (Ages 5-17)""))
+     FROM frpm f2
+     JOIN schools s2 ON f2.CDSCode = s2.CDSCode
+     WHERE s2.FundingType = 'Locally funded'
+       AND f2.""Enrollment (K-12)"" IS NOT NULL
+       AND f2.""Enrollment (Ages 5-17)"" IS NOT NULL)
+GROUP BY s.School, s.DOCType, f.CDSCode
+ORDER BY ABS(f.""Enrollment (K-12)"" - f.""Enrollment (Ages 5-17)"") DESC;",False,challenging,1,SCHEMA_ERROR,,12754,58.8,4,15855,6528,4592,3584,0.011679,0.321,32.009,26.381,0.055,0.0,calibration
+135,31,california_schools,What is the eligible free rate of the 10th and 11th schools with the highest enrolment for students in grades 1 through 12?,K-12 refers to students in grades 1 through 12; Eligible free rate for K-12 = `Free Meal Count (K-12)` / `Enrollment (K-12)`,"SELECT CAST(`Free Meal Count (K-12)` AS REAL) / `Enrollment (K-12)` FROM frpm ORDER BY `Enrollment (K-12)` DESC LIMIT 9, 2","SELECT frpm.""Percent (%) Eligible Free (K-12)""
+FROM satscores
+JOIN frpm ON satscores.cds = frpm.CDSCode
+WHERE satscores.enroll12 IS NOT NULL
+  AND satscores.enroll12 > 0
+  AND frpm.""Percent (%) Eligible Free (K-12)"" IS NOT NULL
+ORDER BY satscores.enroll12 DESC, satscores.cds ASC
+LIMIT 2 OFFSET 9;",False,moderate,0,,,12754,16.1,2,7914,0,1537,1152,0.005052,0.143,10.455,5.472,0.012,0,calibration
+136,37,california_schools,"What is the complete address of the school with the lowest excellence rate? Indicate the Street, City, Zip and State.","Execellence Rate = NumGE1500 / NumTstTakr; complete address has Street, City, State, Zip code","SELECT T2.Street, T2.City, T2.State, T2.Zip FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode ORDER BY CAST(T1.NumGE1500 AS REAL) / T1.NumTstTakr ASC LIMIT 1","SELECT Street, City, Zip, State
+FROM schools
+WHERE ExcellenceRate IS NOT NULL
+  AND StatusType = 'Active'
+  AND ExcellenceRate = (
+    SELECT MIN(ExcellenceRate) FROM schools
+    WHERE ExcellenceRate IS NOT NULL AND StatusType = 'Active'
+  );",False,moderate,3,SCHEMA_ERROR;SCHEMA_ERROR;SCHEMA_ERROR,,12754,43.0,6,23473,13056,3774,3008,0.010479,0.434,27.662,14.825,0.011,0.0,calibration
+137,36,california_schools,Under whose administration is the school with the highest number of students scoring 1500 or more on the SAT? Indicate their full names.,"full name means first name, last name; There are at most 3 administrators for each school; SAT Scores are greater or equal to 1500 refers to NumGE1500","SELECT T2.AdmFName1, T2.AdmLName1, T2.AdmFName2, T2.AdmLName2, T2.AdmFName3, T2.AdmLName3 FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode ORDER BY T1.NumGE1500 DESC LIMIT 1","SELECT
+CASE
+ WHEN (COALESCE(NULLIF(TRIM(schools.AdmFName1),''),'')<>'' AND COALESCE(NULLIF(TRIM(schools.AdmLName1),''),'')<>'') THEN schools.AdmFName1 || ' ' || schools.AdmLName1
+ WHEN (COALESCE(NULLIF(TRIM(schools.AdmFName2),''),'')<>'' AND COALESCE(NULLIF(TRIM(schools.AdmLName2),''),'')<>'') THEN schools.AdmFName2 || ' ' || schools.AdmLName2
+ ELSE COALESCE(NULLIF(TRIM(schools.AdmFName1 || ' ' || schools.AdmLName1),''), NULLIF(TRIM(schools.AdmFName2 || ' ' || schools.AdmLName2),''), '')
+END
+FROM satscores
+JOIN schools ON satscores.cds = schools.CDSCode
+WHERE satscores.NumGE1500 = (SELECT MAX(NumGE1500) FROM satscores);",False,challenging,0,,,12754,17.3,2,7837,0,1912,1472,0.005783,0.163,7.133,9.937,0.005,0,calibration
+138,50,california_schools,What is the postal street address for the school with the 7th highest Math average? Indicate the school's name.,Postal street and mailing street are synonyms.,"SELECT T2.MailStreet, T2.School FROM satscores AS T1 INNER JOIN schools AS T2 ON T1.cds = T2.CDSCode ORDER BY T1.AvgScrMath DESC LIMIT 6, 1","SELECT schools.School, schools.MailStreet
+FROM satscores
+JOIN schools ON satscores.cds = schools.CDSCode
+WHERE satscores.AvgScrMath IS NOT NULL
+  AND schools.StatusType = 'Active'
+ORDER BY satscores.AvgScrMath DESC, satscores.sname ASC
+LIMIT 1 OFFSET 6;",False,simple,0,,,12754,15.7,2,7867,0,1548,1216,0.005063,0.152,7.65,7.865,0.012,0,calibration
+139,79,california_schools,"Between San Diego and Santa Barbara, which county offers the most number of schools that does not offer physical building? Indicate the amount.",'Does not offer physical building' means Virtual = F in the database.,"SELECT County, COUNT(Virtual) FROM schools WHERE (County = 'San Diego' OR County = 'Santa Barbara') AND Virtual = 'F' GROUP BY County ORDER BY COUNT(Virtual) DESC LIMIT 1","SELECT County, COUNT(*) AS COUNT
+FROM schools
+WHERE County IN ('San Diego','Santa Barbara')
+  AND StatusType = 'Active'
+  AND (DOCType = 'Non-School Locations' OR Virtual IN ('P','F'))
+GROUP BY County
+ORDER BY COUNT DESC;",False,moderate,0,,,12754,13.9,2,7825,0,1216,960,0.004388,0.167,8.897,4.819,0.006,0,calibration
+140,89,financial,How many accounts who choose issuance after transaction are staying in East Bohemia region?,A3 contains the data of region; 'POPLATEK PO OBRATU' represents for 'issuance after transaction'.,SELECT COUNT(T2.account_id) FROM district AS T1 INNER JOIN account AS T2 ON T1.district_id = T2.district_id WHERE T1.A3 = 'east Bohemia' AND T2.frequency = 'POPLATEK PO OBRATU',SELECT COUNT(DISTINCT account.account_id) FROM account JOIN trans ON account.account_id = trans.account_id JOIN district ON account.district_id = district.district_id WHERE district.A3 = 'East Bohemia' AND trans.type = 'VYDAJ';,False,moderate,0,,,4213,12.3,2,3446,0,1245,960,0.003351,0.16,8.823,3.033,0.315,0,calibration
+141,98,financial,"Among the accounts who have approved loan date in 1997, list out the accounts that have the lowest approved amount and choose weekly issuance statement.",'POPLATEK TYDNE' stands for weekly issuance,"SELECT T2.account_id FROM loan AS T1 INNER JOIN account AS T2 ON T1.account_id = T2.account_id WHERE STRFTIME('%Y', T1.date) = '1997' AND T2.frequency = 'POPLATEK TYDNE' ORDER BY T1.amount LIMIT 1","SELECT account.account_id
+FROM loan
+JOIN account ON loan.account_id = account.account_id
+WHERE loan.date BETWEEN '1997-01-01' AND '1997-12-31'
+  AND account.frequency = 'POPLATEK TYDNE'
+  AND loan.amount = (
+    SELECT MIN(amount) FROM loan
+    WHERE date BETWEEN '1997-01-01' AND '1997-12-31'
+  )
+GROUP BY account.account_id
+ORDER BY account.account_id ASC;",False,moderate,0,,,3854,19.7,2,3135,0,1838,1472,0.00446,0.116,11.562,8.018,0.005,0,calibration
+142,125,financial,"For loans contracts which are still running where client are in debt, list the district of the and the state the percentage unemployment rate increment from year 1995 to 1996.",Unemployment increment rate in percentage = [(unemployment rate 2016 - unemployment rate 2015) / unemployment rate 2015] * 100; unemployment rate 2015 appears in the A12; unemployment rate 2016 appears in the A13; Loan contracts which are still running where client are in debt can be presented as status = 'D',SELECT CAST((T3.A13 - T3.A12) AS REAL) * 100 / T3.A12 FROM loan AS T1 INNER JOIN account AS T2 ON T1.account_id = T2.account_id INNER JOIN district AS T3 ON T2.district_id = T3.district_id WHERE T1.status = 'D',"SELECT district.A2, district.A3, ((district.A13 - district.A12) / district.A12) * 100
+FROM loan
+JOIN account ON loan.account_id = account.account_id
+JOIN disp ON account.account_id = disp.account_id
+JOIN client ON disp.client_id = client.client_id
+JOIN district ON client.district_id = district.district_id
+JOIN trans ON trans.account_id = account.account_id
+  AND trans.date = (SELECT MAX(t2.date) FROM trans t2 WHERE t2.account_id = account.account_id)
+WHERE disp.type = 'OWNER'
+  AND loan.status NOT IN ('A','B')
+  AND trans.balance < 0
+GROUP BY district.district_id, district.A2, district.A3;",False,challenging,0,,,4317,47.5,2,3713,0,2828,2240,0.006584,0.245,21.678,11.656,13.941,0,calibration
+143,136,financial,"Between 1/1/1995 and 12/31/1997, how many loans in the amount of at least 250,000 per account that chose monthly statement issuance were approved?",Frequency = 'POPLATEK MESICNE' stands for monthly issurance,SELECT COUNT(T1.account_id) FROM account AS T1 INNER JOIN loan AS T2 ON T1.account_id = T2.account_id WHERE T2.date BETWEEN '1995-01-01' AND '1997-12-31' AND T1.frequency = 'POPLATEK MESICNE' AND T2.amount >= 250000,SELECT COUNT(loan.loan_id) FROM loan JOIN account ON loan.account_id = account.account_id WHERE loan.date BETWEEN '1995-01-01' AND '1997-12-31' AND loan.amount >= 250000 AND account.frequency = 'POPLATEK MESICNE',True,moderate,0,,,3854,15.3,2,3099,0,1281,1024,0.003337,0.13,9.669,5.511,0.005,0,calibration
+144,138,financial,"In the branch where the second-highest number of crimes were committed in 1995 occurred, how many male clients are there?",Male refers to gender = 'M'; A15 stands for no. of commited crimes 1995,"SELECT COUNT(T1.client_id) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'M' AND T2.A15 = (SELECT T3.A15 FROM district AS T3 ORDER BY T3.A15 DESC LIMIT 1, 1)",SELECT COUNT(*) FROM client WHERE gender = 'M' AND district_id IN (SELECT district_id FROM district WHERE A15 = (SELECT DISTINCT A15 FROM district ORDER BY A15 DESC LIMIT 1 OFFSET 1));,True,moderate,0,,,4036,13.4,2,3314,0,1067,832,0.002962,0.155,8.04,5.221,0.004,0,calibration
+145,129,financial,Which are the top ten withdrawals (non-credit card) by district names for the month of January 1996?,Non-credit card withdraws refers to type = 'VYDAJ'; January 1996 can be found by date LIKE '1996-01%' in the database; A2 means district names,SELECT DISTINCT T1.A2 FROM district AS T1 INNER JOIN account AS T2 ON T1.district_id = T2.district_id INNER JOIN trans AS T3 ON T2.account_id = T3.account_id WHERE T3.type = 'VYDAJ' AND T3.date LIKE '1996-01%' ORDER BY A2 ASC LIMIT 10,"SELECT d.A2, SUM(t.amount) FROM trans t JOIN account a ON t.account_id = a.account_id JOIN district d ON a.district_id = d.district_id WHERE t.date >= '1996-01-01' AND t.date <= '1996-01-31' AND t.type = 'VYDAJ' AND (t.operation IS NULL OR t.operation NOT LIKE '%KART%') GROUP BY d.A2 ORDER BY SUM(t.amount) DESC LIMIT 10",False,moderate,0,,,4692,23.3,2,3817,0,2211,1856,0.005376,0.181,13.12,9.736,0.259,0,calibration
+146,138,financial,"In the branch where the second-highest number of crimes were committed in 1995 occurred, how many male clients are there?",Male refers to gender = 'M'; A15 stands for no. of commited crimes 1995,"SELECT COUNT(T1.client_id) FROM client AS T1 INNER JOIN district AS T2 ON T1.district_id = T2.district_id WHERE T1.gender = 'M' AND T2.A15 = (SELECT T3.A15 FROM district AS T3 ORDER BY T3.A15 DESC LIMIT 1, 1)",SELECT COUNT(*) FROM client JOIN district ON district.district_id = client.district_id WHERE client.gender = 'M' AND district.A15 = (SELECT MAX(A15) FROM district WHERE A15 < (SELECT MAX(A15) FROM district));,True,moderate,0,,,4036,12.2,2,3301,1408,1148,960,0.002804,0.144,8.37,3.707,0.004,0,calibration
+147,159,financial,List all the withdrawals in cash transactions that the client with the id 3356 makes.,operation = 'VYBER' refers to withdrawal in cash,SELECT T4.trans_id FROM client AS T1 INNER JOIN disp AS T2 ON T1.client_id = T2.client_id INNER JOIN account AS T3 ON T2.account_id = T3.account_id INNER JOIN trans AS T4 ON T3.account_id = T4.account_id WHERE T1.client_id = 3356 AND T4.operation = 'VYBER',SELECT trans.* FROM disp JOIN trans ON disp.account_id = trans.account_id WHERE disp.client_id = 3356 AND trans.type = 'VYDAJ' AND trans.operation LIKE 'VYBER%' ORDER BY trans.date ASC;,False,simple,0,,,3753,15.8,2,3011,0,1425,1152,0.003603,0.148,8.82,6.245,0.484,0,calibration
+148,173,financial,How often does account number 3 request an account statement to be released? What was the aim of debiting 3539 in total?,k_symbol refers to the purpose of payments,"SELECT T1.frequency, T2.k_symbol FROM account AS T1 INNER JOIN (SELECT account_id, k_symbol, SUM(amount) AS total_amount FROM `order` GROUP BY account_id, k_symbol) AS T2 ON T1.account_id = T2.account_id WHERE T1.account_id = 3 AND T2.total_amount = 3539","SELECT
+  (SELECT COUNT(*) FROM trans WHERE account_id = 3 AND k_symbol = 'SLUZBY' AND type IN ('VYDAJ','VYBER')) AS requests,
+  (SELECT k_symbol FROM (SELECT k_symbol, SUM(amount) AS total FROM trans WHERE type IN ('VYDAJ','VYBER') GROUP BY k_symbol) WHERE total = 3539) AS aim;",False,challenging,0,,,3854,23.7,2,3143,0,2261,1920,0.005308,0.137,12.676,10.354,0.494,0,calibration
+149,194,financial,"Provide the IDs and age of the client with high level credit card, which is eligible for loans.",the credit card is high-level refers to card.type = 'gold'; eligible for loans refers to disp.type = 'OWNER',"SELECT T1.client_id, STRFTIME('%Y', CURRENT_TIMESTAMP) - STRFTIME('%Y', T3.birth_date) FROM disp AS T1 INNER JOIN card AS T2 ON T2.disp_id = T1.disp_id INNER JOIN client AS T3 ON T1.client_id = T3.client_id WHERE T2.type = 'gold' AND T1.type = 'OWNER'","SELECT client.client_id, (CAST(strftime('%Y','now') AS INTEGER) - CAST(strftime('%Y', client.birth_date) AS INTEGER) - (strftime('%m-%d','now') < strftime('%m-%d', client.birth_date))) AS age
+FROM client
+JOIN disp ON client.client_id = disp.client_id
+JOIN card ON disp.disp_id = card.disp_id
+JOIN loan ON disp.account_id = loan.account_id
+WHERE card.type = 'gold'
+GROUP BY client.client_id, client.birth_date
+ORDER BY client.client_id ASC;",False,moderate,0,,,3753,24.7,2,3097,0,2177,1728,0.005128,0.132,13.91,10.657,0.006,0,calibration
