@@ -192,6 +192,7 @@ def run_config(split: str) -> dict:
         "classifier_provider": settings.classifier_provider,
         "classifier_model": settings.classifier_model,
         "include_evidence_in_prompts": settings.include_evidence_in_prompts,
+        "semantic_context_enabled": settings.semantic_context_enabled,
         "split": split,
     }
 

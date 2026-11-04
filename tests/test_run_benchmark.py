@@ -465,6 +465,20 @@ def test_resume_refuses_when_the_models_changed_and_keeps_the_original_metadata(
         assert f.read() == original
 
 
+def test_resume_refuses_when_semantic_context_was_switched(harness, monkeypatch):
+    run, rows = harness
+    with pytest.raises(SystemExit):
+        run(FakeGraph(fail_at={3}, fail_with=QuotaExhaustedError("no credit remaining")))
+
+    monkeypatch.setattr(rb.settings, "semantic_context_enabled", not rb.settings.semantic_context_enabled)
+    graph = FakeGraph()
+    with pytest.raises(SystemExit) as exc:
+        run(graph, resume=True)
+
+    assert "semantic_context_enabled" in str(exc.value)
+    assert graph.invoked == []
+
+
 def test_resume_keeps_the_original_metadata_when_the_config_matches(harness):
     run, rows = harness
     with pytest.raises(SystemExit):

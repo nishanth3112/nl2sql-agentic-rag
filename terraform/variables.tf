@@ -77,3 +77,8 @@ variable "tracing_enabled" {
   type    = bool
   default = false
 }
+
+variable "semantic_context_enabled" {
+  type    = bool
+  default = false
+}
