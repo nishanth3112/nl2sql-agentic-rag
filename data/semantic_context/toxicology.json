@@ -1,0 +1,44 @@
+[
+  {
+    "kind": "encoding",
+    "tables": ["atom"],
+    "text": "atom.element symbols: 'c' carbon, 'h' hydrogen, 'o' oxygen, 'n' nitrogen, 's' sulfur, 'cl' chlorine, 'p' phosphorus, 'na' sodium, 'br' bromine, 'f' fluorine, 'i' iodine, 'sn' tin, 'pb' lead, 'te' tellurium, 'ca' calcium.",
+    "source": "description:atom.element"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["atom"],
+    "text": "atom.element also stores rarer lowercase symbols: 'b' boron, 'cu' copper, 'k' potassium, 'si' silicon, 'y' yttrium, 'zn' zinc.",
+    "source": "description:atom.element"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["bond"],
+    "text": "bond.bond_type is '-' for a single bond, '=' for a double bond and '#' for a triple bond.",
+    "source": "description:bond.bond_type"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["molecule"],
+    "text": "molecule.label is '+' when the molecule is carcinogenic (cancer-causing) and '-' when it is not carcinogenic.",
+    "source": "description:molecule.label"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["atom", "bond", "connected"],
+    "text": "IDs embed their molecule: atom.atom_id 'TR000_1' is atom 1 of molecule 'TR000'; bond.bond_id 'TR000_1_2' is the bond in 'TR000' between atoms 'TR000_1' and 'TR000_2'.",
+    "source": "description:bond.bond_id"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["connected"],
+    "text": "connected stores every bond twice, once per direction (atom_id and atom_id2 swapped), so the atoms of a bond are exactly the connected.atom_id values for its bond_id; also joining on atom_id2 duplicates them.",
+    "source": "calibration:249"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["atom"],
+    "text": "\"Elements of the toxicology\" of a molecule means atom.element of the atoms whose atom.molecule_id is that molecule.",
+    "source": "calibration:240"
+  }
+]

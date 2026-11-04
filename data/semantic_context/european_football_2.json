@@ -1,0 +1,98 @@
+[
+  {
+    "kind": "display_name",
+    "tables": ["Player"],
+    "text": "A player's name is Player.player_name (one column holding the full name, e.g. 'Aaron Cresswell').",
+    "source": "description:Player.player_name"
+  },
+  {
+    "kind": "display_name",
+    "tables": ["Team"],
+    "text": "A team's full name is Team.team_long_name (e.g. 'KRC Genk'); Team.team_short_name is a three-letter abbreviation ('GEN').",
+    "source": "calibration:1146"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Player", "Player_Attributes"],
+    "text": "Player_Attributes holds many dated FIFA rating snapshots per player (one row per Player_Attributes.date) and joins Player on player_api_id. A question with no date applies to all of a player's snapshot rows.",
+    "source": "calibration:1037"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Team", "Team_Attributes"],
+    "text": "Team_Attributes holds several dated snapshots per team (Team_Attributes.date) and joins Team on team_api_id; tactics scores are 1-100 with a matching *Class text column.",
+    "source": "calibration:1029"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Player_Attributes", "Team_Attributes", "Match", "Player"],
+    "text": "Dates (Player_Attributes.date, Team_Attributes.date, Match.date, Player.birthday) are text 'YYYY-MM-DD 00:00:00'; a day matches with LIKE 'YYYY-MM-DD%'. An older player has an earlier Player.birthday.",
+    "source": "description:Player.birthday"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Player_Attributes"],
+    "text": "Player_Attributes.attacking_work_rate: 'high' = joins all attack moves (attacks when teammates attack), 'medium' = picks which attacks to join, 'low' = remains in his position while the team attacks.",
+    "source": "description:Player_Attributes.attacking_work_rate"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Player_Attributes"],
+    "text": "Player_Attributes.defensive_work_rate: 'high' = remains in position and defends while the team attacks, 'medium' = picks which defensive actions to join, 'low' = joins attack moves instead of defending.",
+    "source": "description:Player_Attributes.defensive_work_rate"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Player_Attributes"],
+    "text": "Player_Attributes.preferred_foot is 'left' or 'right'. Ratings (overall_rating, potential and the skill scores) are FIFA scores from 0 to 100, higher is better; gk_* columns are goalkeeping skills.",
+    "source": "description:Player_Attributes.preferred_foot"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Team_Attributes"],
+    "text": "Team_Attributes class bins by score (1-33 / 34-66 / 67-100): buildUpPlaySpeedClass Slow/Balanced/Fast; buildUpPlayDribblingClass and chanceCreationCrossing/ShootingClass Little/Normal/Lots.",
+    "source": "description:Team_Attributes.buildUpPlaySpeedClass"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Team_Attributes"],
+    "text": "More class bins (1-33 / 34-66 / 67-100): buildUpPlayPassingClass Short/Mixed/Long; chanceCreationPassingClass Safe/Normal/Risky; defencePressureClass Deep/Medium/High.",
+    "source": "description:Team_Attributes.buildUpPlayPassingClass"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Team_Attributes"],
+    "text": "More class bins (1-33 / 34-66 / 67-100): defenceAggressionClass Contain/Press/Double; defenceTeamWidthClass Narrow/Normal/Wide. Positioning classes are 'Organised' or 'Free Form'; defenceDefenderLineClass 'Cover' or 'Offside Trap'.",
+    "source": "description:Team_Attributes.defenceAggressionClass"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["Team_Attributes"],
+    "text": "Team_Attributes.buildUpPlaySpeed is the speed in which attacks are put together; buildUpPlayPassing affects passing distance; chanceCreationPassing is risk in pass decisions; defencePressure is how high up the pitch pressing starts.",
+    "source": "description:Team_Attributes.buildUpPlaySpeed"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Match", "Team"],
+    "text": "Match.home_team_api_id and Match.away_team_api_id join Team.team_api_id; the score is Match.home_team_goal and Match.away_team_goal.",
+    "source": "description:Match.home_team_api_id"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Match", "Player"],
+    "text": "Match.home_player_1..home_player_11 and away_player_1..away_player_11 hold the Player.player_api_id of each side's eleven players in that match.",
+    "source": "description:Match.home_player_1"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Match", "League", "Country"],
+    "text": "Match.league_id joins League.id and Match.country_id / League.country_id join Country.id. League.name starts with the country noun, e.g. 'Belgium Jupiler League', 'Spain LIGA BBVA', 'Germany 1. Bundesliga'.",
+    "source": "calibration:1139"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Match"],
+    "text": "Match.season is text 'YYYY/YYYY' (e.g. '2008/2009', seasons 2008/2009 to 2015/2016). Match.goal, shoton, shotoff, foulcommit, card, cross, corner, possession hold XML text.",
+    "source": "description:Match.season"
+  }
+]

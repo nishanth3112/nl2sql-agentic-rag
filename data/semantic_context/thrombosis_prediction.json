@@ -1,0 +1,128 @@
+[
+  {
+    "kind": "encoding",
+    "tables": ["Examination"],
+    "text": "Examination.Thrombosis: 0 = negative (no thrombosis); positive degrees are 1 = most serious, 2 = severe, 3 = mild.",
+    "source": "description:Examination.Thrombosis"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["Patient"],
+    "text": "Patient.Admission '+' means admitted to the hospital (inpatient); '-' means followed at the outpatient clinic (outpatient).",
+    "source": "description:Patient.Admission"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Patient"],
+    "text": "Patient.SEX is 'F' (female), 'M' (male) or '' (not recorded).",
+    "source": "description:Patient.SEX"
+  },
+  {
+    "kind": "formula",
+    "tables": ["Patient", "Examination"],
+    "text": "Age is a year difference from Patient.Birthday: current age = STRFTIME('%Y', 'now') - STRFTIME('%Y', Birthday); age at an examination uses the year of Examination.`Examination Date` instead.",
+    "source": "calibration:1229"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Patient", "Examination"],
+    "text": "Diagnosis values are disease abbreviations, combined with ', ' ('SLE, SJS') or suffixed ' susp' when suspected; a patient diagnosed with a named disease such as 'SLE' matches Diagnosis = 'SLE' exactly.",
+    "source": "calibration:1195"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Patient", "Examination"],
+    "text": "A patient's diagnosis is Patient.Diagnosis, which capitalises some names ('SJS', 'BEHCET'); Examination.Diagnosis is recorded per examination and spells them 'SjS', 'Behcet'.",
+    "source": "calibration:1209"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Examination"],
+    "text": "Examination.Symptoms is NULL when no symptom was observed (no empty strings are stored).",
+    "source": "calibration:1270"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["Examination"],
+    "text": "Examination.`aCL IgG`, `aCL IgM`, `aCL IgA` are anti-Cardiolipin antibody concentrations; ANA is anti-nucleus antibody; KCT, RVVT, LAC are coagulation measures, '+' positive and '-' negative.",
+    "source": "description:Examination.aCL IgG"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["Patient"],
+    "text": "Patient.`First Date` is when the patient came to the hospital; Patient.Description is also a date: when the patient's data was first recorded (NULL if not recorded).",
+    "source": "description:Patient.First Date"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Laboratory"],
+    "text": "Laboratory.Date is stored as text 'YYYY-MM-DD' (not YYMMDD); Laboratory has many dated rows per patient ID.",
+    "source": "description:Laboratory.Date"
+  },
+  {
+    "kind": "formula",
+    "tables": ["Laboratory"],
+    "text": "Normal ranges (a value at or past the bound is abnormal, e.g. GPT >= 60): Laboratory.GOT < 60, GPT < 60, LDH < 500, ALP < 300, CPK < 250, `T-BIL` < 2.0, CRE < 1.5, UN < 30.",
+    "source": "description:Laboratory.GOT"
+  },
+  {
+    "kind": "formula",
+    "tables": ["Laboratory"],
+    "text": "Normal ranges: Laboratory.TP 6.0 < N < 8.5, ALB 3.5 < N < 5.5, `T-CHO` < 250, TG < 200, GLU < 180; values outside are abnormal.",
+    "source": "description:Laboratory.TP"
+  },
+  {
+    "kind": "formula",
+    "tables": ["Laboratory"],
+    "text": "Normal ranges: Laboratory.WBC 3.5 < N < 9.0, RBC 3.5 < N < 6.0, HGB 10 < N < 17, HCT 29 < N < 52, PLT 100 < N < 400; values outside are abnormal.",
+    "source": "description:Laboratory.WBC"
+  },
+  {
+    "kind": "formula",
+    "tables": ["Laboratory"],
+    "text": "Normal ranges: Laboratory.PT (prothrombin time) < 14, APTT < 45, FG (fibrinogen) 150 < N < 450; values outside are abnormal.",
+    "source": "description:Laboratory.PT"
+  },
+  {
+    "kind": "formula",
+    "tables": ["Laboratory"],
+    "text": "Normal ranges: Laboratory.IGG 900 < N < 2000, IGA 80 < N < 500, IGM 40 < N < 400, C3 (complement 3) > 35, C4 > 10; values outside are abnormal.",
+    "source": "description:Laboratory.IGG"
+  },
+  {
+    "kind": "formula",
+    "tables": ["Laboratory", "Patient"],
+    "text": "Laboratory.UA (uric acid) thresholds depend on Patient.SEX: 8.0 for 'M' and 6.5 for 'F'; the description writes them as 'N > 8.0 (Male) N > 6.5 (Female)'.",
+    "source": "description:Laboratory.UA"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Laboratory"],
+    "text": "Laboratory.RNP, SM, SC170, SSA, SSB and CENTROMEA are text; a normal (negative) result is stored as '0' or 'negative', other values such as '16' are positive titres.",
+    "source": "calibration:1267"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Laboratory"],
+    "text": "Laboratory.RA (rheumatoid factor) is normal when '-' or '+-'; '+' and '2+' are abnormal.",
+    "source": "description:Laboratory.RA"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Laboratory"],
+    "text": "Laboratory.CRP (C-reactive protein) is text mixing signs and numbers ('-', '+', '2+', '0.6', '<0.3'); normal is '-', '+-' or a number below 1.0.",
+    "source": "description:Laboratory.CRP"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Laboratory"],
+    "text": "Laboratory.RF (RAHA) is text such as '<20.5' or '40', normal below 20; Laboratory.DNA (anti-DNA) is numeric text, normal below 8; `DNA-II` is always NULL.",
+    "source": "description:Laboratory.RF"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["Laboratory"],
+    "text": "Laboratory.`U-PRO` (proteinuria) is text ('-', '0', 'TR', '30', '100', '>=300'); its normal range is 0 < N < 30.",
+    "source": "description:Laboratory.U-PRO"
+  }
+]

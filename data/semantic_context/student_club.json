@@ -1,0 +1,80 @@
+[
+  {
+    "kind": "display_name",
+    "tables": ["member"],
+    "text": "A member's (student's) name or full name is the two columns member.first_name and member.last_name, kept separate; a named member is matched on both columns.",
+    "source": "description:member.last_name"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["member", "zip_code"],
+    "text": "Where a member is from (hometown, city, county, state) comes from zip_code via member.zip = zip_code.zip_code; zip_code.state holds full state names ('Illinois'), zip_code.short_state the abbreviation ('IL').",
+    "source": "calibration:1334"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["member"],
+    "text": "member.position values: 'Member', 'Inactive', 'President', 'Vice President', 'Secretary', 'Treasurer'. member.t_shirt_size values: 'Small', 'Medium', 'Large', 'X-Large'.",
+    "source": "description:member.position"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["event"],
+    "text": "event.type values: 'Meeting', 'Election', 'Game', 'Guest Speaker', 'Social', 'Community Service', 'Budget', 'Registration'. event.status is 'Open', 'Planning' or 'Closed'.",
+    "source": "description:event.type"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["event"],
+    "text": "event.event_date is text 'YYYY-MM-DDTHH:MM:SS' (e.g. '2020-03-10T12:00:00'); events run from 2019-09 to 2020-05.",
+    "source": "description:event.event_date"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["expense", "income"],
+    "text": "expense.expense_date and income.date_received are text 'YYYY-MM-DD'; the month is SUBSTR(date, 6, 2).",
+    "source": "description:expense.expense_date"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["expense"],
+    "text": "expense.approved is the text 'true' or 'false' (one NULL), not a boolean. expense.cost is in dollars.",
+    "source": "description:expense.approved"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["expense", "budget", "event"],
+    "text": "Expenses belong to an event through its budget: expense.link_to_budget = budget.budget_id and budget.link_to_event = event.event_id. expense.link_to_member is the member who incurred (managed) the spending.",
+    "source": "calibration:1387"
+  },
+  {
+    "kind": "formula",
+    "tables": ["budget"],
+    "text": "budget.amount is the amount budgeted for a category of an event; budget.amount = budget.spent + budget.remaining. budget.remaining < 0 means the cost exceeded the budget (over budget).",
+    "source": "description:budget.remaining"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["budget"],
+    "text": "budget.category values: 'Advertisement', 'Food', 'Parking', 'Speaker Gifts', 'Club T-Shirts'. budget.event_status is 'Closed', 'Open' or 'Planning' (copied from the event).",
+    "source": "description:budget.category"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["income"],
+    "text": "income.source values: 'Dues', 'Fundraising', 'Sponsorship', 'School Appropration' (misspelled as stored). income.link_to_member is the member who received the funds.",
+    "source": "description:income.source"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["attendance", "event", "member"],
+    "text": "Attending an event is a row in attendance (attendance.link_to_event = event.event_id, attendance.link_to_member = member.member_id); an event's attendance count is the number of its attendance rows.",
+    "source": "calibration:1381"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["major", "member"],
+    "text": "A member's major is major.major_name via member.link_to_major = major.major_id; major.department and major.college give the department and college offering it.",
+    "source": "calibration:1312"
+  }
+]

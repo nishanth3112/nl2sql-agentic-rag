@@ -25,6 +25,8 @@ class AgentState(TypedDict):
                               # include_evidence_in_prompts for whether agents actually see it
 
     schema_context: Optional[str]
+    # Definitions for the retrieved tables when SEMANTIC_CONTEXT_ENABLED; "" when none apply.
+    semantic_context: Optional[str]
     plan: Optional[dict]
     sql_query: Optional[str]
 
@@ -60,6 +62,7 @@ def initial_state(db_id: str, question: str, evidence: Optional[str] = None, max
         "question": question.strip(),
         "evidence": evidence.strip() if evidence else None,
         "schema_context": None,
+        "semantic_context": None,
         "plan": None,
         "sql_query": None,
         "execution_result": None,

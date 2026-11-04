@@ -99,6 +99,52 @@ Weakest databases: `california_schools` 14.29% (3/21), `financial` 27.27% (6/22)
 `superhero`, both 66.67% (24/36). Cells this small move a lot on a single question.
 Later phases compare against this file, on the held-out split only.
 
+### Semantic context: written-down domain knowledge, without `evidence`
+
+`SEMANTIC_CONTEXT_ENABLED=true` adds short domain notes to the planner and
+generator prompts: value encodings (`'POPLATEK MESICNE'` means monthly
+statements), formulas, synonyms and which columns give an entity's name. The 156
+notes in `data/semantic_context/` were written from BIRD's `database_description`
+files and calibration questions only, and each one names its source. A test
+rejects any note sourced from a held-out question or from `evidence`. A note is
+used when the retriever returns one of its tables, so the schema index is
+unchanged. It is off by default.
+
+Held-out, two runs with semantic context, each paired against the single Phase 2
+baseline run above:
+
+| Difficulty | Baseline | Run 1 | Run 2 |
+|---|---|---|---|
+| simple | 59.43% (63/106) | 62.26% (66/106) | 60.38% (64/106) |
+| moderate | 44.83% (78/174) | 47.70% (83/174) | 48.28% (84/174) |
+| challenging | 21.43% (15/70) | 31.43% (22/70) | 27.14% (19/70) |
+| **overall** | **44.57% (156/350)** | **48.86% (171/350)** | **47.71% (167/350)** |
+| fixed / broken | | 27 / 12 | 28 / 17 |
+| McNemar exact *p* | | 0.024 | 0.135 |
+
+**Both runs score higher than the baseline, by +15 and +11 questions. Only run 1
+clears p < 0.05; run 2's gain is within noise.** Both are paired against the same
+single baseline run, so they are not independent confirmations. The two runs with
+semantic context disagree with each other on 26 questions (11 one way, 15 the
+other), against 39 and 45 discordant pairs in the comparisons with the baseline, so
+noise accounts for a large share of the flips. 22 questions are fixed in both runs
+and 7 broken in both. Relative to its size, `challenging` gains most (15/70 to 22
+and 19), though moderate adds as many questions (+5 and +6). The three weakest
+databases rise in both runs: `california_schools` from 3/21 to 5 and 6, `financial`
+from 6/22 to 8 and 9, `thrombosis_prediction` from 10/35 to 12 and 15. Cells this
+small move a lot on one question. Read this as roughly +3 to +4 points against one
+baseline run, not as a settled effect size.
+
+- **n:** 350 rows (349 ids), split `heldout`, 2 runs with semantic context against 1 baseline run. All three cover the same 11 databases (`db_id_set_hash` `b82d01e2…`), with 0 fatal rows.
+- **Models:** `gpt-5-mini` planner and generator, `openai/gpt-oss-20b` (Groq) classifier, `evidence` not in prompts. The metadata of all three runs records the classifier provider as `openai`, a labelling mismatch carried over unchanged to keep the runs comparable. Apart from the switch, the run metadata matches the baseline's.
+- **Date and cost:** 2026-11-02 and 2026-11-03; $1.63 and $1.61 ($0.0047 and $0.0046 per question, against the baseline's $0.0044).
+- **Files:** baseline `eval/results_20261029T131422.csv`; runs `eval/results_20261102T224353.csv` and `eval/results_20261103T003451.csv`, each with its `run_metadata_<stamp>.json`.
+- **The notes were frozen before either held-out run** and not edited after.
+- **Calibration, in-sample:** 50.67% (76/150) against 45.33% (68/150), 17 fixed and 9 broken, *p* = 0.17 (`eval/results_20261102T214103.csv` against `eval/results_20261029T221310.csv`, 150 rows (149 ids), run 2026-11-02 against a baseline from 2026-10-29). The notes were written from these questions, so this figure is a sanity check, not evidence.
+- **Not recorded:** the run metadata has no field for `MAX_RETRIES` or the reasoning-token budget, so it can't show that those match the baseline.
+
+Reproduce with `uv run python -m scripts.compare_ablation eval/results_20261029T131422.csv eval/results_20261102T224353.csv`, and again with the second run's CSV.
+
 ### Per-database accuracy — and the finding that matters
 
 | Database | Columns | Accuracy |
@@ -820,6 +866,7 @@ src/
   db/connection.py         read-only connections (mode=ro + query_only)
   db/sql_guard.py          tool-boundary gate: compile-time authorizer, row cap, timeout
   explain.py               result summaries for the MCP explain tool
+  semantic_context.py      loads the domain notes for the retrieved tables
   uploads.py               demo SQLite uploads: validation, TTL/cap eviction
   demo_limits.py           per-session and global daily query caps
 eval/
@@ -829,6 +876,7 @@ eval/
   results_500_baseline.csv per-question results and failure taxonomy
   results_150_with_evidence.csv  evidence-ablation arm (see Results)
 data/build_schema_index.py schema introspection + sample-value extraction
+data/semantic_context/     per-database domain notes, each with its source
 api/ ui/                   FastAPI backend, Streamlit frontend
 mcp_server/server.py       seven MCP tools + capability manifest (thin HTTP proxy)
 snowflake_sql/schema.sql   EVAL_RUNS, EVAL_RESULTS, QUERY_HISTORY DDL

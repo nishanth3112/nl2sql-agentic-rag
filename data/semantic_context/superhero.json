@@ -1,0 +1,62 @@
+[
+  {
+    "kind": "display_name",
+    "tables": ["superhero"],
+    "text": "superhero.superhero_name is the hero's name (e.g. '3-D Man'); superhero.full_name is the character's real full name and is '-' or NULL when unknown.",
+    "source": "description:superhero.full_name"
+  },
+  {
+    "kind": "display_name",
+    "tables": ["superhero", "colour"],
+    "text": "superhero.eye_colour_id, hair_colour_id and skin_colour_id all point to colour.id; the colour name is colour.colour (e.g. 'Blue', 'Black'), and 'No Colour' (id 1) means none.",
+    "source": "description:colour.colour"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["superhero", "gender"],
+    "text": "superhero.gender_id points to gender.id; gender.gender is 'Male', 'Female' or 'N/A' (female/women -> 'Female', male/men -> 'Male').",
+    "source": "description:gender.gender"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["superhero", "alignment"],
+    "text": "superhero.alignment_id points to alignment.id; alignment.alignment is 'Good', 'Bad', 'Neutral' or 'N/A'; villains/evil characters are 'Bad'.",
+    "source": "description:alignment.alignment"
+  },
+  {
+    "kind": "display_name",
+    "tables": ["superhero", "publisher"],
+    "text": "superhero.publisher_id points to publisher.id; the name is publisher.publisher_name (e.g. 'Marvel Comics', 'DC Comics', 'Dark Horse Comics'); one publisher row has an empty name ''.",
+    "source": "description:publisher.publisher_name"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["superhero", "race"],
+    "text": "superhero.race_id points to race.id; race.race holds names like 'Human', 'Alien', 'Mutant'; '-' means unknown, and variants such as 'Human / Altered' are separate values.",
+    "source": "description:race.race"
+  },
+  {
+    "kind": "display_name",
+    "tables": ["hero_attribute", "attribute"],
+    "text": "hero_attribute links hero_id = superhero.id to attribute_id = attribute.id; attribute.attribute_name is 'Intelligence', 'Strength', 'Speed', 'Durability', 'Power' or 'Combat', scored in hero_attribute.attribute_value.",
+    "source": "description:hero_attribute.attribute_value"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["hero_attribute", "attribute"],
+    "text": "Smart/dumb wording refers to the 'Intelligence' attribute, strong/weak to 'Strength', fast/slow to 'Speed', tough to 'Durability'; a higher hero_attribute.attribute_value means more of it.",
+    "source": "calibration:736"
+  },
+  {
+    "kind": "display_name",
+    "tables": ["hero_power", "superpower"],
+    "text": "hero_power links hero_id = superhero.id to power_id = superpower.id; the power's name is superpower.power_name (e.g. 'Agility', 'Super Strength', 'Stealth').",
+    "source": "description:superpower.power_name"
+  },
+  {
+    "kind": "formula",
+    "tables": ["superhero"],
+    "text": "superhero.height_cm (cm) and weight_kg (kg) use 0 or NULL for missing; averages and comparisons over these columns are taken over the stored values, without excluding 0.",
+    "source": "calibration:750"
+  }
+]

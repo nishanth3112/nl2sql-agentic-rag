@@ -1,0 +1,152 @@
+[
+  {
+    "kind": "display_name",
+    "tables": [
+      "cards",
+      "sets"
+    ],
+    "text": "cards has one row per printing, so cards.name repeats across sets; cards.setCode = sets.code, and the set's name is sets.name.",
+    "source": "description:cards.name"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "cards"
+    ],
+    "text": "Multi-face cards store 'Face A // Face B' in cards.name, each face's own name in cards.faceName, and cards.side 'a', 'b', ...; side is NULL for single-faced cards.",
+    "source": "description:cards.side"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "cards"
+    ],
+    "text": "Color letters in cards.colors / colorIdentity: 'W' white, 'U' blue, 'B' black, 'R' red, 'G' green; multicolor is comma-separated (e.g. 'B,U'); colorless is NULL.",
+    "source": "calibration:391"
+  },
+  {
+    "kind": "formula",
+    "tables": [
+      "cards"
+    ],
+    "text": "A card with 'incredibly powerful foils' has cards.cardKingdomFoilId IS NOT NULL AND cards.cardKingdomId IS NOT NULL.",
+    "source": "description:cards.cardKingdomFoilId"
+  },
+  {
+    "kind": "synonym",
+    "tables": [
+      "cards"
+    ],
+    "text": "Converted mana cost / mana value is cards.convertedManaCost (REAL); cards.manaCost is the unconverted cost text such as '{5}{W}{W}'.",
+    "source": "description:cards.convertedManaCost"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "cards"
+    ],
+    "text": "cards.power and cards.toughness are TEXT: '*' or NULL means unknown, '∞' infinite, and some values are '1+*' or '2.5'.",
+    "source": "description:cards.power"
+  },
+  {
+    "kind": "synonym",
+    "tables": [
+      "cards"
+    ],
+    "text": "A card's 'types' are cards.supertypes (e.g. 'Legendary', 'Basic', 'Snow', before the em-dash) plus cards.subtypes (e.g. 'Human,Cleric', after it); cards.types holds main types like 'Artifact,Creature'.",
+    "source": "description:cards.supertypes"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "cards"
+    ],
+    "text": "cards.type is the type line with an em-dash ('Creature — Human Cleric'); cards.originalType is the printed type with a hyphen ('Creature - Human Cleric').",
+    "source": "description:cards.type"
+  },
+  {
+    "kind": "synonym",
+    "tables": [
+      "cards"
+    ],
+    "text": "Frame style is cards.frameVersion: '1993', '1997', '2003', '2015' or 'future'; cards.frameEffects holds visual effects like 'legendary', 'showcase'.",
+    "source": "calibration:530"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "cards"
+    ],
+    "text": "cards.rarity values: 'common', 'uncommon', 'rare', 'mythic'. cards.availability is a comma-separated list of 'paper', 'mtgo', 'arena', 'dreamcast', 'shandalar'.",
+    "source": "description:cards.availability"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "cards"
+    ],
+    "text": "cards.originalReleaseDate is TEXT 'YYYY/M/D' (e.g. '2012/12/1') with no zero padding; sets.releaseDate is 'YYYY-MM-DD'.",
+    "source": "description:cards.originalReleaseDate"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "legalities",
+      "cards"
+    ],
+    "text": "legalities.status is 'Legal', 'Banned' or 'Restricted' (capitalised); legalities.format is lowercase ('commander', 'legacy', 'vintage', 'modern', ...). Join legalities.uuid = cards.uuid.",
+    "source": "description:legalities.status"
+  },
+  {
+    "kind": "display_name",
+    "tables": [
+      "foreign_data",
+      "cards"
+    ],
+    "text": "foreign_data.name is the card's name in foreign_data.language; join foreign_data.uuid = cards.uuid for the English cards.name.",
+    "source": "description:foreign_data.name"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "foreign_data",
+      "set_translations"
+    ],
+    "text": "Language values are English names: 'Chinese Simplified', 'Chinese Traditional', 'Portuguese (Brazil)', 'German', 'French', 'Italian', 'Japanese', 'Korean', 'Russian', 'Spanish'.",
+    "source": "calibration:468"
+  },
+  {
+    "kind": "display_name",
+    "tables": [
+      "set_translations",
+      "sets"
+    ],
+    "text": "A set's translated name is set_translations.translation for set_translations.language (join set_translations.setCode = sets.code); translation can be NULL, meaning no translation.",
+    "source": "calibration:472"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "sets"
+    ],
+    "text": "sets.mtgoCode NULL means the set does not appear on Magic: The Gathering Online. sets.isForeignOnly = 1 means the set is only available outside the United States.",
+    "source": "description:sets.mtgoCode"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "sets"
+    ],
+    "text": "sets.type (expansion type) values include 'core', 'expansion', 'masters', 'commander', 'duel_deck', 'promo', 'funny', 'starter', 'box', 'memorabilia'.",
+    "source": "description:sets.type"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "rulings",
+      "cards"
+    ],
+    "text": "rulings.text is a rules ruling for the card with rulings.uuid = cards.uuid; rulings.date is 'YYYY-MM-DD'.",
+    "source": "description:rulings.text"
+  }
+]

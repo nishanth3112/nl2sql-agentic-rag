@@ -45,9 +45,12 @@ def query_planner_node(state: AgentState) -> dict:
     if settings.include_evidence_in_prompts and state.get("evidence"):
         evidence_context = f"\n\nHint: {state['evidence']}"
 
+    notes = state.get("semantic_context")
+    notes_context = f"\n\nDomain notes:\n{notes}" if notes else ""
+
     user_prompt = (
         f"Question: {state['question']}\n\n"
-        f"Schema:\n{state['schema_context']}{evidence_context}{error_context}"
+        f"Schema:\n{state['schema_context']}{notes_context}{evidence_context}{error_context}"
     )
 
     raw_text = generate_text(

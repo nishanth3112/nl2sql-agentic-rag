@@ -79,7 +79,7 @@ def test_success_path_returns_exactly_the_old_keys(monkeypatch):
     # same keys, no retrieval_failed, no failure fields in the trace.
     _store(monkeypatch, _WorkingStore())
     out = schema_retriever_node(initial_state("formula_1", "q"))
-    assert set(out) == {"schema_context", "trace"}
+    assert set(out) == {"schema_context", "semantic_context", "trace"}
     assert out["schema_context"] == "Table: results\nColumns: constructorId"
     assert out["trace"][-1] == {
         "node": "schema_retriever",
