@@ -37,9 +37,13 @@ def sql_generator_node(state: AgentState) -> dict:
             f"Fix the syntax while keeping the same intent."
         )
 
+    notes = state.get("semantic_context")
+    notes_context = f"Domain notes:\n{notes}\n\n" if notes else ""
+
     user_prompt = (
         f"Question: {state['question']}\n\n"
         f"Schema:\n{state['schema_context']}\n\n"
+        f"{notes_context}"
         f"Plan:\n{state['plan']}{error_context}"
     )
 

@@ -6,7 +6,8 @@ flags a SCHEMA_ERROR -- in that case it retrieves a wider slice of the
 schema on retry.
 """
 
-from src import uploads
+from src import semantic_context, uploads
+from src.config import settings
 from src.retrieval.vector_store import SchemaVectorStore
 from src.retrieval.cache import get_cached_retrieval, set_cached_retrieval
 from src.agents.state import AgentState
@@ -73,15 +74,18 @@ def schema_retriever_node(state: AgentState) -> dict:
         set_cached_retrieval(state["db_id"], state["question"], top_k, relevant_tables)
 
     schema_text = "\n\n".join(t["schema_text"] for t in relevant_tables if t.get("schema_text"))
+    table_names = [t["table_name"] for t in relevant_tables]
+    notes = semantic_context.for_tables(state["db_id"], table_names) if settings.semantic_context_enabled else ""
 
     trace_entry = {
         "node": "schema_retriever",
         "retry_count": state["retry_count"],
-        "retrieved_tables": [t["table_name"] for t in relevant_tables],
+        "retrieved_tables": table_names,
         "cache_hit": cache_hit,
     }
 
     return {
         "schema_context": schema_text,
+        "semantic_context": notes,
         "trace": state["trace"] + [trace_entry],
     }
