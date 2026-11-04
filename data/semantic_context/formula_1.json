@@ -1,0 +1,104 @@
+[
+  {
+    "kind": "display_name",
+    "tables": ["drivers"],
+    "text": "A driver's name or full name is the two columns drivers.forename and drivers.surname; drivers.code is the three-letter abbreviation ('HAM') and is NULL for most older drivers.",
+    "source": "calibration:892"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["races", "results", "qualifying", "lapTimes", "pitStops", "driverStandings", "constructorStandings", "constructorResults"],
+    "text": "'Race No. N' means raceId = N. A specific Grand Prix is races.name (e.g. 'Australian Grand Prix') together with races.year.",
+    "source": "calibration:865"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["results"],
+    "text": "results.time is non-NULL only for drivers who finished the race. Only the winner's time is a full race time 'H:MM:SS.mmm'; other finishers hold the gap to the winner as '+seconds'.",
+    "source": "description:results.time"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["results"],
+    "text": "The champion (winner) of a race is the results row with positionOrder = 1; it is the only row whose results.time is a full 'H:MM:SS.mmm' race time (some winners before 2004 have one decimal, e.g. '1:34:42.1').",
+    "source": "calibration:990"
+  },
+  {
+    "kind": "formula",
+    "tables": ["results"],
+    "text": "Race completion (finishing) counts a result as completed when results.time IS NOT NULL; the completion percentage is finished results * 100 / all results.",
+    "source": "calibration:954"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["results", "status"],
+    "text": "results.statusId joins status.statusId; status.status holds the text such as 'Finished', 'Disqualified', 'Accident', '+1 Lap'.",
+    "source": "description:results.statusId"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["results"],
+    "text": "results.fastestLapTime is text 'M:SS.mmm' (smaller is faster); results.fastestLapSpeed is text in km/h; results.fastestLap is the lap number; results.rank ranks drivers by fastest lap.",
+    "source": "description:results.fastestLapTime"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["results"],
+    "text": "results.position is the finishing position (NULL when not classified); results.positionOrder is always filled; results.grid is the starting grid position.",
+    "source": "description:results.positionOrder"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["qualifying"],
+    "text": "qualifying.q1, q2, q3 are text lap times 'M:SS.mmm' (e.g. '1:33.740'), so a time like 0:01:33 matches q3 LIKE '1:33%'. Only the top 15 of Q1 have q2 and only the top 10 of Q2 have q3.",
+    "source": "calibration:872"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["lapTimes", "pitStops"],
+    "text": "lapTimes.time is text 'M:SS.mmm' with lapTimes.milliseconds as its numeric form; pitStops.duration is text seconds ('23.227') with pitStops.milliseconds numeric; pitStops.time is clock time.",
+    "source": "description:pitStops.duration"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["driverStandings", "constructorStandings"],
+    "text": "driverStandings and constructorStandings rows are season standings after race raceId: points, position and wins are cumulative season-to-date totals, so summing them over races double counts.",
+    "source": "description:driverStandings.points"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["constructorResults"],
+    "text": "constructorResults.points are the points a constructor scored in that single race (raceId).",
+    "source": "calibration:869"
+  },
+  {
+    "kind": "display_name",
+    "tables": ["constructors"],
+    "text": "constructors.name is the constructor's full name; constructors.constructorRef is its short reference name; constructors.url is its introduction website.",
+    "source": "description:constructors.name"
+  },
+  {
+    "kind": "display_name",
+    "tables": ["circuits"],
+    "text": "circuits.name is the full circuit name, circuits.circuitRef the reference name, circuits.location the city; a circuit's coordinates are (circuits.lat, circuits.lng). Races link via races.circuitId.",
+    "source": "description:circuits.lng"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["seasons", "races"],
+    "text": "seasons.year is the season year (its description wrongly says race ID) and joins races.year; seasons.url is the season's web page.",
+    "source": "description:seasons.year"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["drivers"],
+    "text": "drivers.dob is text 'YYYY-MM-DD'; an older driver has an earlier dob, the youngest the latest dob.",
+    "source": "description:drivers.dob"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["drivers"],
+    "text": "drivers.nationality is an adjective ('British', 'Japanese', 'American').",
+    "source": "description:drivers.nationality"
+  }
+]

@@ -1,0 +1,156 @@
+[
+  {
+    "kind": "display_name",
+    "tables": [
+      "schools",
+      "frpm",
+      "satscores"
+    ],
+    "text": "School name: schools.School, frpm.\"School Name\", satscores.sname. Rows link by schools.CDSCode = frpm.CDSCode = satscores.cds.",
+    "source": "description:schools.School"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "satscores"
+    ],
+    "text": "satscores.rtype 'S' = a school row; 'D' = a district-level row whose sname is NULL and whose cds ends in '0000000'.",
+    "source": "description:satscores.rtype"
+  },
+  {
+    "kind": "formula",
+    "tables": [
+      "satscores"
+    ],
+    "text": "Excellence rate = satscores.NumGE1500 / satscores.NumTstTakr (share of SAT takers scoring 1500 or more).",
+    "source": "description:satscores.NumGE1500"
+  },
+  {
+    "kind": "formula",
+    "tables": [
+      "frpm"
+    ],
+    "text": "Eligible free rate = frpm.\"Free Meal Count (K-12)\" / frpm.\"Enrollment (K-12)\"; eligible FRPM rate = \"FRPM Count (K-12)\" / \"Enrollment (K-12)\" (same for the Ages 5-17 columns).",
+    "source": "description:frpm.Free Meal Count (K-12)"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "frpm"
+    ],
+    "text": "frpm.\"Percent (%) Eligible Free ...\" and \"Percent (%) Eligible FRPM ...\" are fractions from 0 to 1, not 0-100. frpm covers only \"Academic Year\" '2014-2015'.",
+    "source": "description:frpm.FRPM Count (K-12)"
+  },
+  {
+    "kind": "synonym",
+    "tables": [
+      "frpm",
+      "satscores"
+    ],
+    "text": "Enrollment for grades 1 through 12 (K-12) is frpm.\"Enrollment (K-12)\"; satscores.enroll12 is a separate SAT-file figure that exists only for schools in satscores.",
+    "source": "calibration:31"
+  },
+  {
+    "kind": "synonym",
+    "tables": [
+      "frpm"
+    ],
+    "text": "frpm has only (K-12) and (Ages 5-17) enrollment and meal columns; questions that say 'ages 15-17' refer to the (Ages 5-17) columns.",
+    "source": "calibration:28"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "schools"
+    ],
+    "text": "schools.Virtual: 'F' = exclusively virtual (no physical building), 'N' = not virtual, 'P' = partial virtual; 'V' and 'C' are defined but do not occur.",
+    "source": "description:schools.Virtual"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "schools",
+      "frpm"
+    ],
+    "text": "Charter flag is 1 = charter, 0 = not: schools.Charter and frpm.\"Charter School (Y/N)\". schools.Magnet is likewise 1 = magnet, 0 = not.",
+    "source": "description:schools.Charter"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "schools",
+      "frpm"
+    ],
+    "text": "Funding type values: 'Directly funded', 'Locally funded', 'Not in CS funding model' (schools.FundingType, frpm.\"Charter Funding Type\"); NULL for non-charter schools.",
+    "source": "description:schools.FundingType"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "schools"
+    ],
+    "text": "schools.StatusType is 'Active', 'Closed', 'Merged' or 'Pending'; schools lists closed and merged schools as well as active ones.",
+    "source": "description:schools.StatusType"
+  },
+  {
+    "kind": "synonym",
+    "tables": [
+      "schools"
+    ],
+    "text": "Physical address: schools.Street (StreetAbr abbreviated), City, Zip, State. Mailing/postal address: schools.MailStreet (MailStrAbr), MailCity, MailZip, MailState.",
+    "source": "description:schools.MailStreet"
+  },
+  {
+    "kind": "display_name",
+    "tables": [
+      "schools"
+    ],
+    "text": "Administrator names: AdmFName1/AdmLName1 (first/last), with up to two more administrators in AdmFName2/AdmLName2 and AdmFName3/AdmLName3.",
+    "source": "calibration:36"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "schools",
+      "frpm"
+    ],
+    "text": "schools.DOC (district ownership code): '00' County Office of Education, '52' Elementary School District, '54' Unified, '56' High School District; schools.DOCType and frpm.\"District Type\" hold the text.",
+    "source": "description:schools.DOC"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "schools",
+      "frpm"
+    ],
+    "text": "School type text: schools.SOCType = frpm.\"School Type\", e.g. 'High Schools (Public)' (SOC '66'), 'Elementary Schools (Public)' ('60'), 'K-12 Schools (Public)' ('65'), 'Continuation High Schools' ('68').",
+    "source": "description:schools.SOC"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "schools",
+      "frpm"
+    ],
+    "text": "schools.EdOpsCode short codes (e.g. 'TRAD' Traditional, 'CON' Continuation School, 'JUV' Juvenile Court School, 'SPEC' Special Education School); text is EdOpsName = frpm.\"Educational Option Type\".",
+    "source": "description:schools.EdOpsCode"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "schools"
+    ],
+    "text": "schools.EILCode (instruction level): 'ELEM' Elementary, 'HS' High School, 'INTMIDJR' Intermediate/Middle/Junior High, 'ELEMHIGH' Elementary-High Combination, 'A' Adult, 'PS' Preschool, 'UG' Ungraded.",
+    "source": "description:schools.EILCode"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "schools",
+      "frpm",
+      "satscores"
+    ],
+    "text": "County values are bare names without 'County' (e.g. 'Alameda', 'San Diego') in schools.County, frpm.\"County Name\" and satscores.cname.",
+    "source": "description:schools.County"
+  }
+]
