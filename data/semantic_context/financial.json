@@ -1,0 +1,110 @@
+[
+  {
+    "kind": "encoding",
+    "tables": ["account"],
+    "text": "account.frequency is the statement issuance frequency: 'POPLATEK MESICNE' = monthly issuance, 'POPLATEK TYDNE' = weekly issuance, 'POPLATEK PO OBRATU' = issuance after a transaction.",
+    "source": "calibration:89"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["account"],
+    "text": "How often an account's statement is issued, released or requested is account.frequency (not a count of transactions).",
+    "source": "calibration:173"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["loan"],
+    "text": "loan.status: 'A' = contract finished, no problems; 'B' = contract finished, loan not paid; 'C' = running contract, OK so far; 'D' = running contract, client in debt.",
+    "source": "description:loan.status"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["trans"],
+    "text": "trans.type is the direction: 'PRIJEM' = credit (money in), 'VYDAJ' = withdrawal/debit (a few rows hold 'VYBER'). trans.amount is always positive; the sign comes only from trans.type.",
+    "source": "description:trans.type"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["trans"],
+    "text": "trans.operation: 'VYBER KARTOU' = credit card withdrawal, 'VKLAD' = credit in cash, 'PREVOD Z UCTU' = collection from another bank, 'VYBER' = withdrawal in cash, 'PREVOD NA UCET' = remittance to another bank.",
+    "source": "description:trans.operation"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["trans"],
+    "text": "A withdrawal in cash is trans.operation = 'VYBER'; a card withdrawal is trans.operation = 'VYBER KARTOU'; a withdrawal in general is trans.type = 'VYDAJ'.",
+    "source": "calibration:159"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["trans"],
+    "text": "trans.k_symbol: 'POJISTNE' insurance payment, 'SLUZBY' payment for statement, 'UROK' interest credited, 'SANKC. UROK' sanction interest for negative balance, 'SIPO' household, 'DUCHOD' old-age pension, 'UVER' loan payment.",
+    "source": "description:trans.k_symbol"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["order"],
+    "text": "order.k_symbol is the purpose (aim) of a debited payment order: 'POJISTNE' insurance, 'SIPO' household, 'LEASING' leasing, 'UVER' loan payment, '' unspecified. order.amount is the debited amount.",
+    "source": "description:order.k_symbol"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["disp"],
+    "text": "disp.type is 'OWNER' or 'DISPONENT' (authorized user). Only the OWNER can issue permanent orders or apply for loans, so a client eligible for loans has disp.type = 'OWNER'.",
+    "source": "description:disp.type"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["card"],
+    "text": "card.type: 'junior' = junior class card, 'classic' = standard class card, 'gold' = high-level credit card.",
+    "source": "description:card.type"
+  },
+  {
+    "kind": "display_name",
+    "tables": ["district"],
+    "text": "district.A2 is the district (branch location) name, e.g. 'Hl.m. Praha' for Prague; district.A3 is the region.",
+    "source": "description:district.A2"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["district"],
+    "text": "district.A3 regions are stored as 'Prague', 'central Bohemia', 'south Bohemia', 'west Bohemia', 'north Bohemia', 'east Bohemia', 'south Moravia', 'north Moravia' (direction word lowercase).",
+    "source": "description:district.A3"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["district"],
+    "text": "district.A4 = number of inhabitants (stored as TEXT); A5, A6, A7, A8 = number of municipalities with <499, 500-1999, 2000-9999, >10000 inhabitants; A10 = ratio of urban inhabitants; A11 = average salary.",
+    "source": "description:district.A4"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["district"],
+    "text": "district.A12 and A13 = unemployment rate in 1995 and 1996; A14 = entrepreneurs per 1000 inhabitants; A15 and A16 = number of committed crimes in 1995 and 1996. A9 is not useful.",
+    "source": "description:district.A12"
+  },
+  {
+    "kind": "formula",
+    "tables": ["district"],
+    "text": "The percentage increment of the unemployment rate from 1995 to 1996 is (district.A13 - district.A12) * 100 / district.A12.",
+    "source": "calibration:125"
+  },
+  {
+    "kind": "encoding",
+    "tables": ["account", "card", "loan", "trans", "client"],
+    "text": "Dates (account.date, card.issued, loan.date, trans.date, client.birth_date) are stored as 'YYYY-MM-DD' text, although the descriptions say YYMMDD.",
+    "source": "description:account.date"
+  },
+  {
+    "kind": "formula",
+    "tables": ["client"],
+    "text": "A client's age is the difference in calendar years: strftime('%Y', reference date) - strftime('%Y', client.birth_date), with the current date as reference when none is given.",
+    "source": "calibration:194"
+  },
+  {
+    "kind": "synonym",
+    "tables": ["account", "loan", "client", "disp", "district"],
+    "text": "An account's branch/district is account.district_id; loans and transactions take their district through the account. Clients link to accounts only through disp (disp.client_id, disp.account_id).",
+    "source": "calibration:125"
+  }
+]

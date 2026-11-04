@@ -1,0 +1,90 @@
+[
+  {
+    "kind": "encoding",
+    "tables": [
+      "posts"
+    ],
+    "text": "Misspelled columns: the post creation date is posts.CreaionDate and the last activity date is posts.LasActivityDate.",
+    "source": "description:posts.CreaionDate"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "posts"
+    ],
+    "text": "posts.PostTypeId 1 = question (has Title, Tags, AcceptedAnswerId), 2 = answer, whose posts.ParentId is the question's Id; root posts have ParentId NULL.",
+    "source": "description:posts.ParentId"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "posts",
+      "tags"
+    ],
+    "text": "posts.Tags is a string like '<bayesian><prior>' ('<humor>' for a single tag); tags.TagName holds the bare tag ('bayesian').",
+    "source": "description:posts.Tags"
+  },
+  {
+    "kind": "display_name",
+    "tables": [
+      "users",
+      "posts",
+      "comments",
+      "badges",
+      "votes"
+    ],
+    "text": "A user's name is users.DisplayName; posts.OwnerUserId, posts.LastEditorUserId, comments.UserId, badges.UserId and votes.UserId refer to users.Id.",
+    "source": "description:users.DisplayName"
+  },
+  {
+    "kind": "display_name",
+    "tables": [
+      "posts"
+    ],
+    "text": "When posts.OwnerUserId is NULL, posts.OwnerDisplayName holds the owner's name.",
+    "source": "description:posts.OwnerDisplayName"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "postHistory",
+      "posts"
+    ],
+    "text": "postHistory.Text is the revision content: PostHistoryTypeId 1/4 = title, 2/5 = body, 3/6 = tags (initial/edit). postHistory.UserId is the user who made that revision.",
+    "source": "calibration:685"
+  },
+  {
+    "kind": "synonym",
+    "tables": [
+      "postHistory",
+      "posts",
+      "users"
+    ],
+    "text": "Posts related to a user can be found through posts.OwnerUserId (owner) or through postHistory.UserId joined on postHistory.PostId = posts.Id (users who created or edited them).",
+    "source": "calibration:637"
+  },
+  {
+    "kind": "synonym",
+    "tables": [
+      "posts"
+    ],
+    "text": "Popularity of a post is posts.ViewCount; how valuable it is, posts.FavoriteCount. A post with posts.ClosedDate NOT NULL is 'well-finished'; NULL means not well-finished.",
+    "source": "description:posts.ViewCount"
+  },
+  {
+    "kind": "synonym",
+    "tables": [
+      "comments"
+    ],
+    "text": "comments.Score above 60 means a positive comment; below 60 a negative comment.",
+    "source": "description:comments.Score"
+  },
+  {
+    "kind": "synonym",
+    "tables": [
+      "users"
+    ],
+    "text": "users.Age groups: teenager = 13-18, adult = 19-65, elder = over 65. A user's influence is users.Reputation.",
+    "source": "description:users.Age"
+  }
+]

@@ -1,0 +1,69 @@
+[
+  {
+    "kind": "encoding",
+    "tables": [
+      "yearmonth"
+    ],
+    "text": "yearmonth.Date is TEXT 'YYYYMM' (e.g. '201202' = February 2012); the year is SUBSTR(Date, 1, 4) and the month SUBSTR(Date, 5, 2).",
+    "source": "calibration:1476"
+  },
+  {
+    "kind": "formula",
+    "tables": [
+      "yearmonth",
+      "customers"
+    ],
+    "text": "Gas consumption is yearmonth.Consumption, one row per customer per month; a month's total consumption is SUM(Consumption) over all customers for that yearmonth.Date.",
+    "source": "calibration:1498"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "transactions_1k",
+      "yearmonth"
+    ],
+    "text": "transactions_1k.Date is 'YYYY-MM-DD' and only covers 2012-08-23 to 2012-08-26; consumption by month or year comes from yearmonth, not from transactions.",
+    "source": "calibration:1479"
+  },
+  {
+    "kind": "formula",
+    "tables": [
+      "transactions_1k"
+    ],
+    "text": "transactions_1k.Price is the total paid for the transaction line, not a unit price; price per unit = transactions_1k.Price / transactions_1k.Amount.",
+    "source": "calibration:1533"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "customers"
+    ],
+    "text": "customers.Currency is 'EUR' (euro) or 'CZK' (Czech koruna); 'paid in euro' means customers.Currency = 'EUR'.",
+    "source": "calibration:1505"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "gasstations"
+    ],
+    "text": "gasstations.Country is a 3-letter code: 'CZE' = Czech Republic, 'SVK' = Slovakia.",
+    "source": "calibration:1506"
+  },
+  {
+    "kind": "encoding",
+    "tables": [
+      "gasstations"
+    ],
+    "text": "gasstations.Segment (chain segment) values: 'Premium', 'Value for money', 'Discount', 'Noname', 'Other'; customers.Segment (client segment) is 'SME', 'LAM' or 'KAM'.",
+    "source": "description:gasstations.Segment"
+  },
+  {
+    "kind": "display_name",
+    "tables": [
+      "products",
+      "transactions_1k"
+    ],
+    "text": "A product's name is products.Description (Czech labels such as 'Nafta', 'Natural'); join transactions_1k.ProductID = products.ProductID.",
+    "source": "description:products.Description"
+  }
+]
