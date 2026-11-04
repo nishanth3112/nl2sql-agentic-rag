@@ -465,17 +465,25 @@ def test_resume_refuses_when_the_models_changed_and_keeps_the_original_metadata(
         assert f.read() == original
 
 
-def test_resume_refuses_when_semantic_context_was_switched(harness, monkeypatch):
+@pytest.mark.parametrize(
+    "key,changed",
+    [
+        ("semantic_context_enabled", lambda v: not v),
+        ("max_retries", lambda v: v + 1),
+        ("reasoning_token_budget", lambda v: v + 1000),
+    ],
+)
+def test_resume_refuses_when_a_run_setting_changed(harness, monkeypatch, key, changed):
     run, rows = harness
     with pytest.raises(SystemExit):
         run(FakeGraph(fail_at={3}, fail_with=QuotaExhaustedError("no credit remaining")))
 
-    monkeypatch.setattr(rb.settings, "semantic_context_enabled", not rb.settings.semantic_context_enabled)
+    monkeypatch.setattr(rb.settings, key, changed(getattr(rb.settings, key)))
     graph = FakeGraph()
     with pytest.raises(SystemExit) as exc:
         run(graph, resume=True)
 
-    assert "semantic_context_enabled" in str(exc.value)
+    assert key in str(exc.value)
     assert graph.invoked == []
 
 
