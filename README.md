@@ -89,7 +89,7 @@ confidence interval, and not a like-for-like comparison with the 44.20% above
 | **overall** | **44.57% (156/350)** |
 
 - **n:** 350 rows (349 question ids; id 137 appears on two rows), split `heldout`, 1 run.
-- **Models:** `gpt-5-mini` planner and generator, `openai/gpt-oss-20b` (Groq) classifier. `evidence` not in prompts.
+- **Models:** `gpt-5-mini` planner and generator, `openai/gpt-oss-20b` classifier, sent to OpenAI by mistake so its LLM calls failed (see the reference runs below). `evidence` not in prompts.
 - **Date and cost:** 2026-10-29, about $1.53 (`est_cost_usd`, prices as of 2026-10-25), $0.0044 per question.
 - **Files:** `eval/results_20261029T131422.csv`, `eval/run_metadata_20261029T131422.json`.
 - The run stalled at 100 rows and was resumed once with `--resume`; the CSV holds each row once.
@@ -97,7 +97,7 @@ confidence interval, and not a like-for-like comparison with the 44.20% above
 Weakest databases: `california_schools` 14.29% (3/21), `financial` 27.27% (6/22),
 `thrombosis_prediction` 28.57% (10/35). Strongest: `european_football_2` and
 `superhero`, both 66.67% (24/36). Cells this small move a lot on a single question.
-Later phases compare against this file, on the held-out split only.
+Later phases compare against the reference runs below, on the held-out split only.
 
 ### Semantic context: written-down domain knowledge, without `evidence`
 
@@ -108,7 +108,8 @@ notes in `data/semantic_context/` were written from BIRD's `database_description
 files and calibration questions only, and each one names its source. A test
 rejects any note sourced from a held-out question or from `evidence`. A note is
 used when the retriever returns one of its tables, so the schema index is
-unchanged. It is off by default.
+unchanged. It is on by default; `SEMANTIC_CONTEXT_ENABLED=false` reproduces the
+Phase 2 baselines.
 
 Held-out, two runs with semantic context, each paired against the single Phase 2
 baseline run above:
@@ -136,14 +137,42 @@ small move a lot on one question. Read this as roughly +3 to +4 points against o
 baseline run, not as a settled effect size.
 
 - **n:** 350 rows (349 ids), split `heldout`, 2 runs with semantic context against 1 baseline run. All three cover the same 11 databases (`db_id_set_hash` `b82d01e2…`), with 0 fatal rows.
-- **Models:** `gpt-5-mini` planner and generator, `openai/gpt-oss-20b` (Groq) classifier, `evidence` not in prompts. The metadata of all three runs records the classifier provider as `openai`, a labelling mismatch carried over unchanged to keep the runs comparable. Apart from the switch, the run metadata matches the baseline's.
+- **Models:** `gpt-5-mini` planner and generator, `openai/gpt-oss-20b` (Groq) classifier, `evidence` not in prompts. The metadata of all three runs records the classifier provider as `openai`. That was not just a label: the calls went to OpenAI and failed (see the reference runs below). Apart from the switch, the run metadata matches the baseline's.
 - **Date and cost:** 2026-11-02 and 2026-11-03; $1.63 and $1.61 ($0.0047 and $0.0046 per question, against the baseline's $0.0044).
 - **Files:** baseline `eval/results_20261029T131422.csv`; runs `eval/results_20261102T224353.csv` and `eval/results_20261103T003451.csv`, each with its `run_metadata_<stamp>.json`.
 - **The notes were frozen before either held-out run** and not edited after.
 - **Calibration, in-sample:** 50.67% (76/150) against 45.33% (68/150), 17 fixed and 9 broken, *p* = 0.17 (`eval/results_20261102T214103.csv` against `eval/results_20261029T221310.csv`, 150 rows (149 ids), run 2026-11-02 against a baseline from 2026-10-29). The notes were written from these questions, so this figure is a sanity check, not evidence.
-- **Not recorded:** the run metadata has no field for `MAX_RETRIES` or the reasoning-token budget, so it can't show that those match the baseline.
+- **Not recorded:** the metadata of these runs has no field for `MAX_RETRIES` or the reasoning-token budget, so it can't show that those match the baseline. Runs from 2026-11-04 on record both.
 
 Reproduce with `uv run python -m scripts.compare_ablation eval/results_20261029T131422.csv eval/results_20261102T224353.csv`, and again with the second run's CSV.
+
+### Reference runs: working classifier, semantic context on
+
+**Every Phase 2 and Phase 3 run above sent the error classifier to the wrong
+provider.** `CLASSIFIER_PROVIDER=openai` was paired with Groq's model name
+`openai/gpt-oss-20b`, which OpenAI rejects as an invalid model ID. The classifier
+records a failed call as `UNKNOWN_ERROR`, which ends the retry loop, so nothing
+crashed. The damage is small because the LLM classifier is called only when the
+rules for schema, syntax and timeout errors don't match. In each of those CSVs at
+most one question hit `UNKNOWN_ERROR`, so their numbers stand. The `LOGIC_ERROR`
+retry path, however, never ran. The benchmark now makes one test call per model
+role before it spends any question, and stops if any model fails.
+
+Two reference runs under the fixed configuration, with semantic context on (now
+the default):
+
+| Split | Accuracy | Against the Phase 2 baseline | Against the Phase 3 semantic run(s) |
+|---|---|---|---|
+| held-out | 49.14% (172/350) | 27 fixed / 11 broken, *p* = 0.014 | 13 / 12, *p* = 1.0 (run 1); 16 / 11, *p* = 0.44 (run 2) |
+| calibration | 49.33% (74/150) | 17 / 11, *p* = 0.34 | 4 / 6, *p* = 0.75 |
+
+- **n:** held-out 350 rows (349 ids); calibration 150 rows (149 ids). 1 run each, both on `db_id_set_hash` `b82d01e2…`, with 0 fatal rows.
+- **Models:** `gpt-5-mini` planner and generator; `openai/gpt-oss-20b` classifier on Groq, verified by the metadata (`classifier_provider` `groq`). `evidence` not in prompts. `MAX_RETRIES` 3, reasoning-token budget 3000.
+- **Date and cost:** 2026-11-04; $1.64 held-out ($0.0047 per question), $0.66 calibration ($0.0044 per question).
+- **Files:** `eval/results_20261104T000034.csv` (held-out) and `eval/results_20261104T021628.csv` (calibration), each with its `run_metadata_<stamp>.json`.
+- **The classifier change is not isolated here.** In these runs the LLM classifier was reached on 1 of 350 held-out questions and on none of the 150 calibration questions. Rules handled the rest. No question hit `LOGIC_ERROR`, so that retry path has still never run. Against the Phase 3 runs, the recorded config differs only in the classifier provider (Phase 3 metadata did not record the retry limit or reasoning budget), and every comparison is within noise.
+- With this run there are three held-out runs with semantic context (171, 167, 172 out of 350), against one baseline run (156).
+- Later phases compare against these two files: held-out for results, and calibration as the weekly drift-check baseline.
 
 ### Per-database accuracy — and the finding that matters
 
@@ -273,7 +302,7 @@ real sample values alongside column names eliminated this category entirely.
 
 **Provider routing is per-role, not global.** The classifier picks one of four
 category labels — a large reasoning model is waste there, so it runs on Groq's
-`llama-3.1-8b-instant`. The planner and generator do the actual reasoning and run
+`openai/gpt-oss-20b` (originally `llama-3.1-8b-instant`, since retired). The planner and generator do the actual reasoning and run
 on OpenAI's `gpt-5-mini`. Configured entirely through environment variables
 (`src/config.py`), so switching a provider is a config change, not a code change.
 
