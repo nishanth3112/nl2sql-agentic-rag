@@ -567,3 +567,24 @@ def test_resume_refuses_a_different_split_even_with_a_sidecar(harness, splits, m
         rb.run_benchmark(split="all", resume=True)
 
     assert "split" in str(exc.value)
+
+
+def test_check_models_stops_before_a_run_when_a_model_fails(monkeypatch):
+    monkeypatch.setattr(rb.settings, "classifier_model", "bad-model")
+
+    def generate_text(provider, model, **kw):
+        if model == "bad-model":
+            raise RuntimeError("Error code: 400 - invalid model ID")
+        return "OK"
+
+    monkeypatch.setattr(rb, "generate_text", generate_text)
+    with pytest.raises(SystemExit) as exc:
+        rb.check_models()
+    assert "classifier" in str(exc.value) and "invalid model ID" in str(exc.value)
+
+
+def test_check_models_passes_when_every_model_answers(monkeypatch):
+    calls = []
+    monkeypatch.setattr(rb, "generate_text", lambda provider, model, **kw: calls.append(model) or "OK")
+    rb.check_models()
+    assert len(calls) == 3
