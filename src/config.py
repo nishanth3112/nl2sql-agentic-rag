@@ -11,8 +11,8 @@ class Settings:
 
     benchmark_data_path: str = os.getenv("BENCHMARK_DATA_PATH", "./data/bird-mini-dev")
     include_evidence_in_prompts: bool = os.getenv("INCLUDE_EVIDENCE_IN_PROMPTS", "false").lower() == "true"
-    # Off by default so runs stay comparable to the Phase 2 baselines; see src/semantic_context.py.
-    semantic_context_enabled: bool = os.getenv("SEMANTIC_CONTEXT_ENABLED", "false").lower() == "true"
+    # On by default since Phase 3 measured it on held-out; see src/semantic_context.py and the README.
+    semantic_context_enabled: bool = os.getenv("SEMANTIC_CONTEXT_ENABLED", "true").lower() == "true"
     chroma_persist_dir: str = os.getenv("CHROMA_PERSIST_DIR", "./chroma_db")
     redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     max_retries: int = int(os.getenv("MAX_RETRIES", "3"))

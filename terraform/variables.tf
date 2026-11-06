@@ -65,7 +65,7 @@ variable "classifier_provider" {
 
 variable "classifier_model" {
   type    = string
-  default = "llama-3.1-8b-instant"
+  default = "openai/gpt-oss-20b"
 }
 
 variable "max_retries" {
@@ -80,5 +80,5 @@ variable "tracing_enabled" {
 
 variable "semantic_context_enabled" {
   type    = bool
-  default = false
+  default = true
 }
