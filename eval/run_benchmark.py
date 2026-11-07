@@ -39,7 +39,7 @@ from eval.metrics import execution_match
 from src.agents.state import initial_state
 from src.config import settings
 from src.graph import build_graph
-from src.llm_providers import is_quota_exhausted
+from src.llm_providers import generate_text, is_quota_exhausted
 from src.pricing import PRICING_AS_OF
 
 # The first 14 are the columns every committed results CSV has, in their
@@ -193,6 +193,8 @@ def run_config(split: str) -> dict:
         "classifier_model": settings.classifier_model,
         "include_evidence_in_prompts": settings.include_evidence_in_prompts,
         "semantic_context_enabled": settings.semantic_context_enabled,
+        "max_retries": settings.max_retries,
+        "reasoning_token_budget": settings.reasoning_token_budget,
         "split": split,
     }
 
@@ -279,6 +281,26 @@ def print_summary(results: list, total_elapsed: float, questions_run_now: int) -
     if questions_run_now:
         avg = total_elapsed / questions_run_now
         print(f"\nThis session: {questions_run_now} questions in {total_elapsed / 60:.1f} min ({avg:.1f}s/question)")
+
+
+def check_models() -> None:
+    """
+    One tiny call per role before any question is spent. A model that cannot
+    answer does not stop a run on its own: the classifier swallows the error as
+    UNKNOWN_ERROR, which is how every Phase 2 and 3 run went out with a
+    classifier OpenAI rejected as "invalid model ID".
+    """
+    roles = {
+        "planner": (settings.planner_provider, settings.planner_model),
+        "generator": (settings.generator_provider, settings.generator_model),
+        "classifier": (settings.classifier_provider, settings.classifier_model),
+    }
+    for role, (provider, model) in roles.items():
+        try:
+            generate_text(provider=provider, model=model, system_prompt="Reply with OK.", user_prompt="OK?")
+        except Exception as e:  # noqa: BLE001 -- any failure means the run would be invalid
+            raise SystemExit(f"The {role} model ({provider}, {model}) failed a test call, so no run was started: "
+                             f"{type(e).__name__}: {e}")
 
 
 def read_existing_results() -> list:
@@ -432,9 +454,11 @@ if __name__ == "__main__":
         "--resume", action="store_true", default=os.getenv("BENCHMARK_RESUME") == "1",
         help="continue the results file at BENCHMARK_RESULTS_PATH instead of refusing it",
     )
+    args = parser.parse_args()
     limit_env = os.getenv("BENCHMARK_LIMIT")
+    check_models()
     run_benchmark(
         limit=int(limit_env) if limit_env else None,
         split=os.getenv("BENCHMARK_SPLIT", ALL_SPLIT),
-        resume=parser.parse_args().resume,
+        resume=args.resume,
     )

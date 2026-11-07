@@ -465,17 +465,25 @@ def test_resume_refuses_when_the_models_changed_and_keeps_the_original_metadata(
         assert f.read() == original
 
 
-def test_resume_refuses_when_semantic_context_was_switched(harness, monkeypatch):
+@pytest.mark.parametrize(
+    "key,changed",
+    [
+        ("semantic_context_enabled", lambda v: not v),
+        ("max_retries", lambda v: v + 1),
+        ("reasoning_token_budget", lambda v: v + 1000),
+    ],
+)
+def test_resume_refuses_when_a_run_setting_changed(harness, monkeypatch, key, changed):
     run, rows = harness
     with pytest.raises(SystemExit):
         run(FakeGraph(fail_at={3}, fail_with=QuotaExhaustedError("no credit remaining")))
 
-    monkeypatch.setattr(rb.settings, "semantic_context_enabled", not rb.settings.semantic_context_enabled)
+    monkeypatch.setattr(rb.settings, key, changed(getattr(rb.settings, key)))
     graph = FakeGraph()
     with pytest.raises(SystemExit) as exc:
         run(graph, resume=True)
 
-    assert "semantic_context_enabled" in str(exc.value)
+    assert key in str(exc.value)
     assert graph.invoked == []
 
 
@@ -559,3 +567,24 @@ def test_resume_refuses_a_different_split_even_with_a_sidecar(harness, splits, m
         rb.run_benchmark(split="all", resume=True)
 
     assert "split" in str(exc.value)
+
+
+def test_check_models_stops_before_a_run_when_a_model_fails(monkeypatch):
+    monkeypatch.setattr(rb.settings, "classifier_model", "bad-model")
+
+    def generate_text(provider, model, **kw):
+        if model == "bad-model":
+            raise RuntimeError("Error code: 400 - invalid model ID")
+        return "OK"
+
+    monkeypatch.setattr(rb, "generate_text", generate_text)
+    with pytest.raises(SystemExit) as exc:
+        rb.check_models()
+    assert "classifier" in str(exc.value) and "invalid model ID" in str(exc.value)
+
+
+def test_check_models_passes_when_every_model_answers(monkeypatch):
+    calls = []
+    monkeypatch.setattr(rb, "generate_text", lambda provider, model, **kw: calls.append(model) or "OK")
+    rb.check_models()
+    assert len(calls) == 3
