@@ -454,10 +454,11 @@ if __name__ == "__main__":
         "--resume", action="store_true", default=os.getenv("BENCHMARK_RESUME") == "1",
         help="continue the results file at BENCHMARK_RESULTS_PATH instead of refusing it",
     )
+    args = parser.parse_args()
     limit_env = os.getenv("BENCHMARK_LIMIT")
     check_models()
     run_benchmark(
         limit=int(limit_env) if limit_env else None,
         split=os.getenv("BENCHMARK_SPLIT", ALL_SPLIT),
-        resume=parser.parse_args().resume,
+        resume=args.resume,
     )

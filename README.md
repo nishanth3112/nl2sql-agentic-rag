@@ -137,7 +137,7 @@ small move a lot on one question. Read this as roughly +3 to +4 points against o
 baseline run, not as a settled effect size.
 
 - **n:** 350 rows (349 ids), split `heldout`, 2 runs with semantic context against 1 baseline run. All three cover the same 11 databases (`db_id_set_hash` `b82d01e2…`), with 0 fatal rows.
-- **Models:** `gpt-5-mini` planner and generator, `openai/gpt-oss-20b` (Groq) classifier, `evidence` not in prompts. The metadata of all three runs records the classifier provider as `openai`. That was not just a label: the calls went to OpenAI and failed (see the reference runs below). Apart from the switch, the run metadata matches the baseline's.
+- **Models:** `gpt-5-mini` planner and generator, `openai/gpt-oss-20b` classifier, sent to OpenAI by mistake, `evidence` not in prompts. The metadata of all three runs records the classifier provider as `openai`. That was not just a label: the calls went to OpenAI and failed (see the reference runs below). Apart from the switch, the run metadata matches the baseline's.
 - **Date and cost:** 2026-11-02 and 2026-11-03; $1.63 and $1.61 ($0.0047 and $0.0046 per question, against the baseline's $0.0044).
 - **Files:** baseline `eval/results_20261029T131422.csv`; runs `eval/results_20261102T224353.csv` and `eval/results_20261103T003451.csv`, each with its `run_metadata_<stamp>.json`.
 - **The notes were frozen before either held-out run** and not edited after.
